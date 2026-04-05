@@ -21,6 +21,7 @@ export default function Home() {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [loading, setLoading] = useState(true)
+  const [notifStatus, setNotifStatus] = useState('idle')
 
   useEffect(() => {
     fetchAlerts()
@@ -76,9 +77,60 @@ export default function Home() {
     fetchAlerts()
   }
 
+  async function activateNotifications() {
+    try {
+      setNotifStatus('loading')
+
+      const registration = await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.ready
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setNotifStatus('denied')
+        return
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      })
+
+      const sub = subscription.toJSON()
+      await fetch('/api/save-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      })
+
+      setNotifStatus('active')
+    } catch (err) {
+      console.error(err)
+      setNotifStatus('error')
+    }
+  }
+
+  const notifButton = {
+    idle: { label: '🔔 Activar notificaciones', background: '#0070f3' },
+    loading: { label: 'Activando...', background: '#999' },
+    active: { label: '✅ Notificaciones activas', background: '#5cb85c' },
+    denied: { label: '❌ Permiso denegado', background: '#d9534f' },
+    error: { label: '⚠️ Error al activar', background: '#f0ad4e' },
+  }
+
   return (
     <main style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
       <h1 style={{ marginBottom: '2rem' }}>Asset Alert App</h1>
+
+      {/* Notifications */}
+      <div style={{ marginBottom: '2rem' }}>
+        <button
+          onClick={activateNotifications}
+          disabled={notifStatus === 'loading' || notifStatus === 'active'}
+          style={{ ...buttonStyle, background: notifButton[notifStatus].background, width: '100%' }}
+        >
+          {notifButton[notifStatus].label}
+        </button>
+      </div>
 
       {/* Form */}
       <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
