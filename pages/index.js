@@ -119,7 +119,7 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Asset Alert App</h1>
+      <h1 style={{ marginBottom: '2rem' }}>Assetic</h1>
 
       {/* Notifications */}
       <div style={{ marginBottom: '2rem' }}>
