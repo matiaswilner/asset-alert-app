@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
 import webpush from 'web-push'
