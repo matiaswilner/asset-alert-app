@@ -28,6 +28,22 @@ async function sendNotification(title, body) {
   }
 }
 
+const MIN_PERIOD_MAP = {
+  min_14d:  { days: 14,  label: '14 días' },
+  min_30d:  { days: 30,  label: '30 días' },
+  min_60d:  { days: 60,  label: '60 días' },
+  min_90d:  { days: 90,  label: '90 días' },
+  min_180d: { days: 180, label: '180 días' },
+}
+
+const MIN_PRICE_MAP = {
+  min_14d:  (price) => price.min14d,
+  min_30d:  (price) => price.min30d,
+  min_60d:  (price) => price.min60d,
+  min_90d:  (price) => price.min90d,
+  min_180d: (price) => price.min180d,
+}
+
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
@@ -80,6 +96,11 @@ export default async function handler(req, res) {
         actualChange = price.changeWeek
         triggered = price.changeWeek >= alert.threshold_percent
         notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% esta semana`
+      } else if (MIN_PERIOD_MAP[alert.condition]) {
+        const period = MIN_PERIOD_MAP[alert.condition]
+        const minPrice = MIN_PRICE_MAP[alert.condition](price)
+        triggered = price.currentPrice <= minPrice
+        notifBody = `${alert.asset_symbol} tocó su mínimo de los últimos ${period.label} ($${price.currentPrice.toFixed(2)})`
       }
 
       if (triggered) {
@@ -92,13 +113,13 @@ export default async function handler(req, res) {
         results.push({
           symbol: alert.asset_symbol,
           status: 'triggered',
-          change: actualChange.toFixed(2) + '%',
+          change: actualChange ? actualChange.toFixed(2) + '%' : 'min reached',
         })
       } else {
         results.push({
           symbol: alert.asset_symbol,
           status: 'ok',
-          change: actualChange.toFixed(2) + '%',
+          change: actualChange ? actualChange.toFixed(2) + '%' : 'above min',
         })
       }
     } catch (err) {
