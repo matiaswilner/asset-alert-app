@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
 import webpush from 'web-push'
 
