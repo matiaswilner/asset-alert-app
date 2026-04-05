@@ -44,7 +44,8 @@ export default function Home() {
   }
 
   async function createAlert() {
-    if (!form.asset_symbol || !form.threshold_percent) return
+    if (!form.asset_symbol) return
+    if (!MIN_CONDITIONS.includes(form.condition) && !form.threshold_percent) return
     await supabase.from('alerts').insert([{
       ...form,
       asset_symbol: form.asset_symbol.toUpperCase(),
