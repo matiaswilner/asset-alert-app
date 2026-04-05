@@ -6,7 +6,14 @@ const CONDITIONS = {
   drop_week: 'Cae % en una semana',
   rise_day: 'Sube % en un día',
   rise_week: 'Sube % en una semana',
+  min_14d: 'Mínimo de 14 días',
+  min_30d: 'Mínimo de 30 días',
+  min_60d: 'Mínimo de 60 días',
+  min_90d: 'Mínimo de 90 días',
+  min_180d: 'Mínimo de 180 días',
 }
+
+const MIN_CONDITIONS = ['min_14d', 'min_30d', 'min_60d', 'min_90d', 'min_180d']
 
 const EMPTY_FORM = {
   asset_symbol: '',
@@ -152,13 +159,15 @@ export default function Home() {
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
-          <input
-            type="number"
-            placeholder="Porcentaje (ej: 5)"
-            value={form.threshold_percent}
-            onChange={e => setForm({ ...form, threshold_percent: e.target.value })}
-            style={inputStyle}
-          />
+          {!MIN_CONDITIONS.includes(form.condition) && (
+            <input
+              type="number"
+              placeholder="Porcentaje (ej: 5)"
+              value={form.threshold_percent}
+              onChange={e => setForm({ ...form, threshold_percent: e.target.value })}
+              style={inputStyle}
+            />
+          )}
           <button onClick={createAlert} style={buttonStyle}>Crear alerta</button>
         </div>
       </div>
@@ -183,7 +192,9 @@ export default function Home() {
                     <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
-                <input type="number" value={editForm.threshold_percent} onChange={e => setEditForm({ ...editForm, threshold_percent: e.target.value })} style={inputStyle} />
+                {!MIN_CONDITIONS.includes(editForm.condition) && (
+                  <input type="number" value={editForm.threshold_percent} onChange={e => setEditForm({ ...editForm, threshold_percent: e.target.value })} style={inputStyle} />
+                )}
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => saveEdit(alert.id)} style={buttonStyle}>Guardar</button>
                   <button onClick={() => setEditingId(null)} style={{ ...buttonStyle, background: '#999' }}>Cancelar</button>
