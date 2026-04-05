@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
+import { getPrice } from '../../lib/prices'
+import webpush from 'web-push'
 
 const CONDITIONS = {
   drop_day: 'Cae % en un día',
