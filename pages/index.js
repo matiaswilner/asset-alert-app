@@ -1,6 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+const fadeIn = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+`
+
 const CONDITIONS = {
   drop_day: 'Cae % en un día',
   drop_week: 'Cae % en una semana',
@@ -72,9 +79,19 @@ function Badge({ label, color = 'var(--accent)', bg = 'var(--accent-dim)' }) {
   )
 }
 
-function Card({ children, style = {} }) {
+function Card({ children, style = {}, onClick }) {
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', ...style }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        padding: '16px',
+        animation: 'fadeIn 0.2s ease',
+        ...style,
+      }}
+    >
       {children}
     </div>
   )
@@ -408,8 +425,12 @@ export default function Home() {
     <div style={{ maxWidth: '480px', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px' }}>
 
       {/* Header */}
+      <style>{fadeIn}</style>
       <div style={{ padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="/icon-192.png" alt="Assetic" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+          <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
+        </div>
         <button
           onClick={activateNotifications}
           disabled={notifStatus === 'loading' || notifStatus === 'active'}
@@ -420,7 +441,10 @@ export default function Home() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+      <div
+        key={activeTab}
+        style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease' }}
+      >
 
         {/* Alerts Tab */}
         {activeTab === 'alerts' && (
@@ -523,7 +547,7 @@ export default function Home() {
 
         {/* Watchlist Tab */}
         {activeTab === 'watchlist' && (
-          <div>
+          <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Watchlist</h2>
               <Button onClick={() => setShowWatchlistForm(!showWatchlistForm)} variant="purple">
@@ -681,6 +705,8 @@ export default function Home() {
               flexDirection: 'column',
               alignItems: 'center',
               gap: '4px',
+              transition: 'opacity 0.15s ease',
+              opacity: activeTab === tab.id ? 1 : 0.6,
             }}
           >
             <span style={{ fontSize: '20px' }}>{tab.icon}</span>
