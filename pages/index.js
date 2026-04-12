@@ -577,47 +577,48 @@ export default function Home() {
               <EmptyState icon="👁" title="Watchlist vacía" subtitle="Agregá activos para monitorear con Smart Alerts" />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {watchlist.map(item => {
-                  const price = prices[item.asset_symbol]
-                  return (
-                    <Card key={item.id} style={{ opacity: item.is_active ? 1 : 0.5 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '18px', fontWeight: '700' }}>{item.asset_symbol}</span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{item.asset_type}</span>
-                          </div>
-                          {price ? (
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                              <span style={{ fontSize: '20px', fontWeight: '700' }}>${parseFloat(price.current_price).toFixed(2)}</span>
-                              <span style={{ fontSize: '13px', fontWeight: '600', color: getChangeColor(price.change_day) }}>
-                                {price.change_day > 0 ? '+' : ''}{parseFloat(price.change_day).toFixed(2)}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin datos aún</span>
-                          )}
-                          {price && (
-                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                              Actualizado {new Date(price.updated_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-                          <Badge label={item.is_active ? '🧠 Smart Alert' : 'Pausado'} color={item.is_active ? 'var(--positive)' : 'var(--text-tertiary)'} bg={item.is_active ? 'var(--positive-dim)' : 'var(--bg-tertiary)'} />
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <Button onClick={() => toggleWatchlistItem(item.id, item.is_active)} variant={item.is_active ? 'warning' : 'success'} style={{ fontSize: '12px', padding: '6px 10px' }}>
-                              {item.is_active ? 'Pausar' : 'Activar'}
-                            </Button>
-                            <Button onClick={() => removeFromWatchlist(item.id)} variant="danger" style={{ fontSize: '12px', padding: '6px 10px' }}>Quitar</Button>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  )
-                })}
+  {watchlist.map(item => {
+    const price = prices[item.asset_symbol]
+    return (
+      <Card key={item.id} style={{ opacity: item.is_active ? 1 : 0.5 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '18px', fontWeight: '700' }}>{item.asset_symbol}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{item.asset_type}</span>
+            </div>
+            {price ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ fontSize: '20px', fontWeight: '700' }}>${parseFloat(price.current_price).toFixed(2)}</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: getChangeColor(price.change_day) }}>
+                  {price.change_day > 0 ? '+' : ''}{parseFloat(price.change_day).toFixed(2)}%
+                </span>
               </div>
+            ) : (
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin datos aún</span>
             )}
+            {price && (
+              <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Actualizado {new Date(price.updated_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
+          <Badge
+            label={item.is_active ? '🧠 Smart Alert' : 'Pausado'}
+            color={item.is_active ? 'var(--positive)' : 'var(--text-tertiary)'}
+            bg={item.is_active ? 'var(--positive-dim)' : 'var(--bg-tertiary)'}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <Button onClick={() => toggleWatchlistItem(item.id, item.is_active)} variant={item.is_active ? 'warning' : 'success'} style={{ fontSize: '12px', padding: '8px 12px' }}>
+            {item.is_active ? 'Pausar' : 'Activar'}
+          </Button>
+          <Button onClick={() => removeFromWatchlist(item.id)} variant="danger" style={{ fontSize: '12px', padding: '8px 12px' }}>Quitar</Button>
+        </div>
+      </Card>
+    )
+  })}
+</div>            )}
           </div>
         )}
 
