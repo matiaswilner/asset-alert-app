@@ -1,10 +1,6 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-
-const MOVEMENT_TYPES = {
-  macro: 'macro',
-  sector: 'sector',
-  asset_specific: 'asset_specific',
-}
+import { callClaude } from '../../lib/ai'
+import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
 
 async function fetchNews(symbol) {
   const response = await fetch(
@@ -16,66 +12,6 @@ async function fetchNews(symbol) {
     .slice(0, 5)
     .map(article => `- ${article.title}: ${article.description || ''}`)
     .join('\n')
-}
-
-async function analyzeWithClaude(symbol, priceChange, timeframe, newsData) {
-  const prompt = `You are a financial assistant helping a long-term investor.
-Context:
-- The user invests in ETFs and some crypto-related assets
-- The goal is to buy during dips, not to trade short-term
-- The analysis has to be done in english, but translated to spanish when sent to the user
-
-Asset: ${symbol}
-Price change: ${priceChange}
-Timeframe: ${timeframe}
-Recent news:
-${newsData}
-
-Tasks:
-1. Summarize what is happening in simple terms
-2. Explain why the price moved
-3. Determine if this is:
-   - a general market movement
-   - sector-specific
-   - asset-specific
-4. Provide a recommendation aligned with long-term investing:
-
-Rules:
-- Avoid trading advice
-- Be cautious (no certainty)
-- Focus on gradual buying opportunities
-- Keep it simple
-
-Output format (respond ONLY with this JSON, no extra text):
-{
-  "summary": "...",
-  "explanation": "...",
-  "context": "macro | sector | asset_specific",
-  "recommendation": "..."
-}`
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  const data = await response.json()
-  console.log('Claude response:', JSON.stringify(data))
-  if (!data.content || !data.content[0]) {
-    throw new Error('Claude API error: ' + JSON.stringify(data))
-  }
-  const text = data.content[0].text
-  const clean = text.replace(/```json|```/g, '').trim()
-  return JSON.parse(clean)
 }
 
 export default async function handler(req, res) {
@@ -91,7 +27,8 @@ export default async function handler(req, res) {
 
   try {
     const newsData = await fetchNews(symbol)
-    const analysis = await analyzeWithClaude(symbol, priceChange, timeframe, newsData)
+    const prompt = buildAnalysisPrompt({ symbol, priceChange, timeframe, newsData })
+    const analysis = await callClaude(prompt)
 
     const { data, error } = await supabase
       .from('alert_analyses')
@@ -102,8 +39,12 @@ export default async function handler(req, res) {
         summary: analysis.summary,
         explanation: analysis.explanation,
         context: analysis.context,
+        interpretation: analysis.interpretation,
         recommendation: analysis.recommendation,
+        score: analysis.score,
+        confidence: analysis.confidence,
         triggered_by: triggeredBy,
+        prompt_version: ANALYSIS_PROMPT_VERSION,
       }])
       .select()
       .single()
@@ -113,6 +54,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ analysis: data })
   } catch (err) {
     console.error('Analyze error:', err.message, err.stack)
-    return res.status(500).json({ error: err.message, stack: err.stack })
+    return res.status(500).json({ error: err.message })
   }
 }
