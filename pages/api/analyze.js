@@ -1,5 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { callClaude } from '../../lib/ai'
+import { callSonnet } from '../../lib/ai'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
 import { getPrice } from '../../lib/prices'
 
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       currentPrice: resolvedCurrentPrice,
       previousPrice: resolvedPreviousPrice,
     })
-    const analysis = await callClaude(prompt)
+    const analysis = await callSonnet(prompt)
 
     const { data, error } = await supabase
       .from('alert_analyses')
