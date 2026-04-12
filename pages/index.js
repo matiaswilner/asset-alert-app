@@ -422,7 +422,7 @@ export default function Home() {
   }
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px' }}>
+    <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px', overflow: 'hidden' }}>
 
       {/* Header */}
       <style>{fadeIn}</style>
@@ -443,7 +443,7 @@ export default function Home() {
       {/* Content */}
       <div
         key={activeTab}
-        style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease' }}
+        style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}
       >
 
         {/* Alerts Tab */}
