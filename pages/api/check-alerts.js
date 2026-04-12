@@ -25,7 +25,7 @@ async function sendNotification(title, body) {
   }
 }
 
-async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId) {
+async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId, currentPrice, previousPrice) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asset-alert-app-red.vercel.app'
     await fetch(`${baseUrl}/api/analyze`, {
@@ -36,6 +36,8 @@ async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertI
         assetType,
         priceChange,
         timeframe,
+        currentPrice,
+        previousPrice,
         alertId,
         triggeredBy: 'automatic',
       }),
@@ -128,7 +130,8 @@ export default async function handler(req, res) {
       }
 
       if (triggered) {
-        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id)
+        const yesterdayPrice = (price.currentPrice / (1 + actualChange / 100)).toFixed(2)
+        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, price.currentPrice, yesterdayPrice)
         await sendNotification('⚠️ Alerta de precio', notifBody)
         await supabase
           .from('alerts')
