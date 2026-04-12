@@ -2,16 +2,45 @@ import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { callClaude } from '../../lib/ai'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
 
+async function fetchMarketauxNews(symbol) {
+  try {
+    const response = await fetch(
+      `https://api.marketaux.com/v1/news/all?symbols=${symbol}&filter_entities=true&language=en&api_token=${process.env.MARKETAUX_API_KEY}`
+    )
+    const data = await response.json()
+    if (!data.data || data.data.length === 0) return []
+    return data.data
+      .slice(0, 4)
+      .map(a => `[Marketaux] ${a.title}: ${a.description || ''}`)
+  } catch {
+    return []
+  }
+}
+
+async function fetchAlphaVantageNews(symbol) {
+  try {
+    const response = await fetch(
+      `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&limit=4&apikey=${process.env.ALPHA_VANTAGE_API_KEY}`
+    )
+    const data = await response.json()
+    if (!data.feed || data.feed.length === 0) return []
+    return data.feed
+      .slice(0, 4)
+      .map(a => `[AlphaVantage] ${a.title}: ${a.summary || ''}`)
+  } catch {
+    return []
+  }
+}
+
 async function fetchNews(symbol) {
-  const response = await fetch(
-    `https://api.marketaux.com/v1/news/all?symbols=${symbol}&filter_entities=true&language=en&api_token=${process.env.MARKETAUX_API_KEY}`
-  )
-  const data = await response.json()
-  if (!data.data || data.data.length === 0) return 'No recent news found.'
-  return data.data
-    .slice(0, 5)
-    .map(article => `- ${article.title}: ${article.description || ''}`)
-    .join('\n')
+  const [marketauxNews, alphaVantageNews] = await Promise.all([
+    fetchMarketauxNews(symbol),
+    fetchAlphaVantageNews(symbol),
+  ])
+
+  const combined = [...marketauxNews, ...alphaVantageNews]
+  if (combined.length === 0) return 'No recent news found.'
+  return combined.map(n => `- ${n}`).join('\n')
 }
 
 export default async function handler(req, res) {
@@ -19,7 +48,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { symbol, assetType, priceChange, timeframe, alertId, triggeredBy = 'manual' } = req.body
+  const { symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy = 'manual' } = req.body
 
   if (!symbol || !priceChange || !timeframe) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -27,7 +56,14 @@ export default async function handler(req, res) {
 
   try {
     const newsData = await fetchNews(symbol)
-    const prompt = buildAnalysisPrompt({ symbol, priceChange, timeframe, newsData })
+    const prompt = buildAnalysisPrompt({
+      symbol,
+      priceChange,
+      timeframe,
+      newsData,
+      currentPrice: currentPrice ?? 'N/A',
+      previousPrice: previousPrice ?? 'N/A',
+    })
     const analysis = await callClaude(prompt)
 
     const { data, error } = await supabase
@@ -50,7 +86,6 @@ export default async function handler(req, res) {
       .single()
 
     if (error) return res.status(500).json({ error: error.message })
-
     return res.status(200).json({ analysis: data })
   } catch (err) {
     console.error('Analyze error:', err.message, err.stack)
