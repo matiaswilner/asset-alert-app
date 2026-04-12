@@ -1,6 +1,7 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { callClaude } from '../../lib/ai'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
+import { getPrice } from '../../lib/prices'
 
 async function fetchMarketauxNews(symbol) {
   try {
@@ -37,7 +38,6 @@ async function fetchNews(symbol) {
     fetchMarketauxNews(symbol),
     fetchAlphaVantageNews(symbol),
   ])
-
   const combined = [...marketauxNews, ...alphaVantageNews]
   if (combined.length === 0) return 'No recent news found.'
   return combined.map(n => `- ${n}`).join('\n')
@@ -50,19 +50,31 @@ export default async function handler(req, res) {
 
   const { symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy = 'manual' } = req.body
 
-  if (!symbol || !priceChange || !timeframe) {
+  if (!symbol || !timeframe) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
   try {
+    // Si es manual, buscamos el precio real
+    let resolvedPriceChange = priceChange
+    let resolvedCurrentPrice = currentPrice
+    let resolvedPreviousPrice = previousPrice
+
+    if (triggeredBy === 'manual' || !currentPrice) {
+      const price = await getPrice(symbol, assetType || 'stock')
+      resolvedCurrentPrice = price.currentPrice.toFixed(2)
+      resolvedPreviousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
+      resolvedPriceChange = `${price.changeDay.toFixed(2)}% en el día`
+    }
+
     const newsData = await fetchNews(symbol)
     const prompt = buildAnalysisPrompt({
       symbol,
-      priceChange,
+      priceChange: resolvedPriceChange,
       timeframe,
       newsData,
-      currentPrice: currentPrice ?? 'N/A',
-      previousPrice: previousPrice ?? 'N/A',
+      currentPrice: resolvedCurrentPrice,
+      previousPrice: resolvedPreviousPrice,
     })
     const analysis = await callClaude(prompt)
 
