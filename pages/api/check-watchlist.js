@@ -2,6 +2,7 @@ import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
 import { buildSmartAlertEvalPrompt, SMART_ALERT_PROMPT_VERSION } from '../../lib/prompts/smartAlert'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
+import { callHaiku, callSonnet } from '../../lib/ai'
 import webpush from 'web-push'
 
 webpush.setVapidDetails(
@@ -58,46 +59,6 @@ async function fetchFinnhubNews(symbol) {
     if (!Array.isArray(data) || data.length === 0) return []
     return data.slice(0, 3).map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
   } catch { return [] }
-}
-
-async function callHaiku(prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  const data = await response.json()
-  if (!data.content || !data.content[0]) throw new Error('Haiku error: ' + JSON.stringify(data))
-  const text = data.content[0].text.replace(/```json|```/g, '').trim()
-  return JSON.parse(text)
-}
-
-async function callSonnet(prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  const data = await response.json()
-  if (!data.content || !data.content[0]) throw new Error('Sonnet error: ' + JSON.stringify(data))
-  const text = data.content[0].text.replace(/```json|```/g, '').trim()
-  return JSON.parse(text)
 }
 
 export default async function handler(req, res) {
