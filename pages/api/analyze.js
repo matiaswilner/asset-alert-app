@@ -18,27 +18,28 @@ async function fetchMarketauxNews(symbol) {
   }
 }
 
-async function fetchAlphaVantageNews(symbol) {
+async function fetchFinnhubNews(symbol) {
   try {
+    const to = new Date().toISOString().split('T')[0]
+    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     const response = await fetch(
-      `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${symbol}&limit=4&apikey=${process.env.ALPHA_VANTAGE_API_KEY}`
+      `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${process.env.FINNHUB_API_KEY}`
     )
     const data = await response.json()
-    if (!data.feed || data.feed.length === 0) return []
-    return data.feed
+    if (!Array.isArray(data) || data.length === 0) return []
+    return data
       .slice(0, 4)
-      .map(a => `[AlphaVantage] ${a.title}: ${a.summary || ''}`)
+      .map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
   } catch {
     return []
   }
 }
-
 async function fetchNews(symbol) {
-  const [marketauxNews, alphaVantageNews] = await Promise.all([
+  const [marketauxNews, finnhubNews] = await Promise.all([
     fetchMarketauxNews(symbol),
-    fetchAlphaVantageNews(symbol),
+    fetchFinnhubNews(symbol),
   ])
-  const combined = [...marketauxNews, ...alphaVantageNews]
+  const combined = [...marketauxNews, ...finnhubNews]
   if (combined.length === 0) return 'No recent news found.'
   return combined.map(n => `- ${n}`).join('\n')
 }
