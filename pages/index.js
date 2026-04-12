@@ -24,14 +24,18 @@ const EMPTY_FORM = {
 
 export default function Home() {
   const [alerts, setAlerts] = useState([])
+  const [analyses, setAnalyses] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [loading, setLoading] = useState(true)
   const [notifStatus, setNotifStatus] = useState('idle')
+  const [analyzingSymbol, setAnalyzingSymbol] = useState(null)
+  const [activeTab, setActiveTab] = useState('alerts')
 
   useEffect(() => {
     fetchAlerts()
+    fetchAnalyses()
   }, [])
 
   async function fetchAlerts() {
@@ -43,13 +47,21 @@ export default function Home() {
     setLoading(false)
   }
 
+  async function fetchAnalyses() {
+    const { data } = await supabase
+      .from('alert_analyses')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setAnalyses(data || [])
+  }
+
   async function createAlert() {
     if (!form.asset_symbol) return
     if (!MIN_CONDITIONS.includes(form.condition) && !form.threshold_percent) return
     await supabase.from('alerts').insert([{
       ...form,
       asset_symbol: form.asset_symbol.toUpperCase(),
-      threshold_percent: parseFloat(form.threshold_percent),
+      threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
     }])
     setForm(EMPTY_FORM)
     fetchAlerts()
@@ -79,7 +91,7 @@ export default function Home() {
     await supabase.from('alerts').update({
       ...editForm,
       asset_symbol: editForm.asset_symbol.toUpperCase(),
-      threshold_percent: parseFloat(editForm.threshold_percent),
+      threshold_percent: editForm.threshold_percent ? parseFloat(editForm.threshold_percent) : null,
     }).eq('id', id)
     setEditingId(null)
     fetchAlerts()
@@ -88,144 +100,218 @@ export default function Home() {
   async function activateNotifications() {
     try {
       setNotifStatus('loading')
-
       const registration = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
-
       const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        setNotifStatus('denied')
-        return
-      }
-
+      if (permission !== 'granted') { setNotifStatus('denied'); return }
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
       })
-
       const sub = subscription.toJSON()
       await fetch('/api/save-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sub),
       })
-
       setNotifStatus('active')
     } catch (err) {
-      console.error(err)
-      setNotifStatus('error')
+      setNotifStatus('error:' + err.message)
     }
   }
 
-  const notifButton = {
-    idle: { label: '🔔 Activar notificaciones', background: '#0070f3' },
-    loading: { label: 'Activando...', background: '#999' },
-    active: { label: '✅ Notificaciones activas', background: '#5cb85c' },
-    denied: { label: '❌ Permiso denegado', background: '#d9534f' },
-    error: { label: '⚠️ Error al activar', background: '#f0ad4e' },
+  async function analyzeManually(alert) {
+    setAnalyzingSymbol(alert.asset_symbol)
+    try {
+      const timeframe = alert.condition.includes('day') ? '1 day' :
+                        alert.condition.includes('week') ? '1 week' :
+                        alert.condition.replace('min_', '').replace('d', ' days')
+      await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: alert.asset_symbol,
+          assetType: alert.asset_type,
+          priceChange: 'manual request',
+          timeframe,
+          alertId: alert.id,
+          triggeredBy: 'manual',
+        }),
+      })
+      await fetchAnalyses()
+      setActiveTab('analyses')
+    } catch (err) {
+      console.error(err)
+    }
+    setAnalyzingSymbol(null)
   }
+
+  const notifLabels = {
+    idle: { label: '🔔 Activar notificaciones', bg: '#0070f3' },
+    loading: { label: 'Activando...', bg: '#999' },
+    active: { label: '✅ Notificaciones activas', bg: '#5cb85c' },
+    denied: { label: '❌ Permiso denegado', bg: '#d9534f' },
+  }
+  const notifLabel = notifStatus.startsWith('error') ? `⚠️ ${notifStatus}` : (notifLabels[notifStatus]?.label ?? notifStatus)
+  const notifBg = notifLabels[notifStatus]?.bg ?? '#f0ad4e'
+
+  const groupedAnalyses = analyses.reduce((acc, a) => {
+    if (!acc[a.asset_symbol]) acc[a.asset_symbol] = []
+    acc[a.asset_symbol].push(a)
+    return acc
+  }, {})
 
   return (
     <main style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Assetic</h1>
+      <h1 style={{ marginBottom: '1.5rem' }}>Assetic</h1>
 
       {/* Notifications */}
-      <div style={{ marginBottom: '2rem' }}>
-        <button
-          onClick={activateNotifications}
-          disabled={notifStatus === 'loading' || notifStatus === 'active'}
-          style={{ ...buttonStyle, background: notifButton[notifStatus].background, width: '100%' }}
-        >
-          {notifButton[notifStatus].label}
-        </button>
-      </div>
+      <button
+        onClick={activateNotifications}
+        disabled={notifStatus === 'loading' || notifStatus === 'active'}
+        style={{ ...btnStyle, background: notifBg, width: '100%', marginBottom: '1.5rem' }}
+      >
+        {notifLabel}
+      </button>
 
-      {/* Form */}
-      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
-        <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Nueva alerta</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <input
-            placeholder="Símbolo (ej: AAPL, BTC)"
-            value={form.asset_symbol}
-            onChange={e => setForm({ ...form, asset_symbol: e.target.value })}
-            style={inputStyle}
-          />
-          <select value={form.asset_type} onChange={e => setForm({ ...form, asset_type: e.target.value })} style={inputStyle}>
-            <option value="stock">Stock</option>
-            <option value="etf">ETF</option>
-            <option value="crypto">Crypto</option>
-          </select>
-          <select value={form.condition} onChange={e => setForm({ ...form, condition: e.target.value })} style={inputStyle}>
-            {Object.entries(CONDITIONS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-          {!MIN_CONDITIONS.includes(form.condition) && (
-            <input
-              type="number"
-              placeholder="Porcentaje (ej: 5)"
-              value={form.threshold_percent}
-              onChange={e => setForm({ ...form, threshold_percent: e.target.value })}
-              style={inputStyle}
-            />
-          )}
-          <button onClick={createAlert} style={buttonStyle}>Crear alerta</button>
-        </div>
-      </div>
-
-      {/* List */}
-      <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Alertas activas</h2>
-      {loading && <p>Cargando...</p>}
-      {!loading && alerts.length === 0 && <p style={{ color: '#999' }}>No hay alertas todavía.</p>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {alerts.map(alert => (
-          <div key={alert.id} style={{ background: '#fff', padding: '1rem', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', opacity: alert.is_active ? 1 : 0.5 }}>
-            {editingId === alert.id ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <input value={editForm.asset_symbol} onChange={e => setEditForm({ ...editForm, asset_symbol: e.target.value })} style={inputStyle} />
-                <select value={editForm.asset_type} onChange={e => setEditForm({ ...editForm, asset_type: e.target.value })} style={inputStyle}>
-                  <option value="stock">Stock</option>
-                  <option value="etf">ETF</option>
-                  <option value="crypto">Crypto</option>
-                </select>
-                <select value={editForm.condition} onChange={e => setEditForm({ ...editForm, condition: e.target.value })} style={inputStyle}>
-                  {Object.entries(CONDITIONS).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-                {!MIN_CONDITIONS.includes(editForm.condition) && (
-                  <input type="number" value={editForm.threshold_percent} onChange={e => setEditForm({ ...editForm, threshold_percent: e.target.value })} style={inputStyle} />
-                )}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => saveEdit(alert.id)} style={buttonStyle}>Guardar</button>
-                  <button onClick={() => setEditingId(null)} style={{ ...buttonStyle, background: '#999' }}>Cancelar</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong>{alert.asset_symbol}</strong>
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#666', textTransform: 'uppercase' }}>{alert.asset_type}</span>
-                  <p style={{ fontSize: '0.9rem', color: '#444', marginTop: '0.25rem' }}>
-                    {CONDITIONS[alert.condition]} {alert.threshold_percent}%
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => toggleAlert(alert.id, alert.is_active)} style={{ ...buttonStyle, background: alert.is_active ? '#f0ad4e' : '#5cb85c', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
-                    {alert.is_active ? 'Pausar' : 'Activar'}
-                  </button>
-                  <button onClick={() => startEdit(alert)} style={{ ...buttonStyle, background: '#5bc0de', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
-                    Editar
-                  </button>
-                  <button onClick={() => deleteAlert(alert.id)} style={{ ...buttonStyle, background: '#d9534f', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        {['alerts', 'analyses'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              ...btnStyle,
+              background: activeTab === tab ? '#0070f3' : '#e2e8f0',
+              color: activeTab === tab ? '#fff' : '#333',
+              flex: 1,
+            }}
+          >
+            {tab === 'alerts' ? '🔔 Alertas' : '🧠 Análisis'}
+          </button>
         ))}
       </div>
+
+      {/* Alerts Tab */}
+      {activeTab === 'alerts' && (
+        <>
+          {/* Form */}
+          <div style={cardStyle}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Nueva alerta</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <input
+                placeholder="Símbolo (ej: AAPL, BTC)"
+                value={form.asset_symbol}
+                onChange={e => setForm({ ...form, asset_symbol: e.target.value })}
+                style={inputStyle}
+              />
+              <select value={form.asset_type} onChange={e => setForm({ ...form, asset_type: e.target.value })} style={inputStyle}>
+                <option value="stock">Stock</option>
+                <option value="etf">ETF</option>
+                <option value="crypto">Crypto</option>
+              </select>
+              <select value={form.condition} onChange={e => setForm({ ...form, condition: e.target.value })} style={inputStyle}>
+                {Object.entries(CONDITIONS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+              {!MIN_CONDITIONS.includes(form.condition) && (
+                <input
+                  type="number"
+                  placeholder="Porcentaje (ej: 5)"
+                  value={form.threshold_percent}
+                  onChange={e => setForm({ ...form, threshold_percent: e.target.value })}
+                  style={inputStyle}
+                />
+              )}
+              <button onClick={createAlert} style={btnStyle}>Crear alerta</button>
+            </div>
+          </div>
+
+          {/* Alert List */}
+          <h2 style={{ margin: '1.5rem 0 1rem', fontSize: '1rem' }}>Alertas activas</h2>
+          {loading && <p>Cargando...</p>}
+          {!loading && alerts.length === 0 && <p style={{ color: '#999' }}>No hay alertas todavía.</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {alerts.map(alert => (
+              <div key={alert.id} style={{ ...cardStyle, opacity: alert.is_active ? 1 : 0.5 }}>
+                {editingId === alert.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <input value={editForm.asset_symbol} onChange={e => setEditForm({ ...editForm, asset_symbol: e.target.value })} style={inputStyle} />
+                    <select value={editForm.asset_type} onChange={e => setEditForm({ ...editForm, asset_type: e.target.value })} style={inputStyle}>
+                      <option value="stock">Stock</option>
+                      <option value="etf">ETF</option>
+                      <option value="crypto">Crypto</option>
+                    </select>
+                    <select value={editForm.condition} onChange={e => setEditForm({ ...editForm, condition: e.target.value })} style={inputStyle}>
+                      {Object.entries(CONDITIONS).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                    {!MIN_CONDITIONS.includes(editForm.condition) && (
+                      <input type="number" value={editForm.threshold_percent} onChange={e => setEditForm({ ...editForm, threshold_percent: e.target.value })} style={inputStyle} />
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => saveEdit(alert.id)} style={btnStyle}>Guardar</button>
+                      <button onClick={() => setEditingId(null)} style={{ ...btnStyle, background: '#999' }}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong>{alert.asset_symbol}</strong>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#666', textTransform: 'uppercase' }}>{alert.asset_type}</span>
+                      <p style={{ fontSize: '0.9rem', color: '#444', marginTop: '0.25rem' }}>
+                        {CONDITIONS[alert.condition]} {alert.threshold_percent ? `${alert.threshold_percent}%` : ''}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={() => analyzeManually(alert)} disabled={analyzingSymbol === alert.asset_symbol} style={{ ...btnStyle, background: '#6366f1', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                        {analyzingSymbol === alert.asset_symbol ? '...' : '🧠'}
+                      </button>
+                      <button onClick={() => toggleAlert(alert.id, alert.is_active)} style={{ ...btnStyle, background: alert.is_active ? '#f0ad4e' : '#5cb85c', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                        {alert.is_active ? 'Pausar' : 'Activar'}
+                      </button>
+                      <button onClick={() => startEdit(alert)} style={{ ...btnStyle, background: '#5bc0de', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                        Editar
+                      </button>
+                      <button onClick={() => deleteAlert(alert.id)} style={{ ...btnStyle, background: '#d9534f', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Analyses Tab */}
+      {activeTab === 'analyses' && (
+        <>
+          <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Historial de análisis</h2>
+          {Object.keys(groupedAnalyses).length === 0 && <p style={{ color: '#999' }}>No hay análisis todavía.</p>}
+          {Object.entries(groupedAnalyses).map(([symbol, items]) => (
+            <div key={symbol} style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>{symbol}</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {items.map(a => (
+                  <div key={a.id} style={cardStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(a.created_at).toLocaleString('es-AR')}</span>
+                      <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>{a.movement_type}</span>
+                    </div>
+                    <p style={{ fontWeight: '500', marginBottom: '0.4rem' }}>📋 {a.summary}</p>
+                    <p style={{ fontSize: '0.9rem', color: '#444', marginBottom: '0.4rem' }}>💡 {a.explanation}</p>
+                    <p style={{ fontSize: '0.9rem', color: '#2563eb' }}>🎯 {a.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </main>
   )
 }
@@ -238,7 +324,7 @@ const inputStyle = {
   width: '100%',
 }
 
-const buttonStyle = {
+const btnStyle = {
   padding: '0.6rem 1rem',
   borderRadius: '6px',
   border: 'none',
@@ -246,4 +332,11 @@ const buttonStyle = {
   color: '#fff',
   fontSize: '1rem',
   cursor: 'pointer',
+}
+
+const cardStyle = {
+  background: '#fff',
+  padding: '1rem',
+  borderRadius: '8px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
 }
