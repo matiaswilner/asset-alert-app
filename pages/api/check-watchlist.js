@@ -1,41 +1,8 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
-import { buildSmartAlertEvalPrompt, SMART_ALERT_PROMPT_VERSION } from '../../lib/prompts/smartAlert'
+import { buildSmartAlertEvalPrompt } from '../../lib/prompts/smartAlert'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
-import { callHaiku, callSonnet } from '../../lib/ai'
-import webpush from 'web-push'
-
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-)
-
-async function sendNotification(title, body) {
-  const { data: subscriptions } = await supabase
-    .from('push_subscriptions')
-    .select('*')
-  for (const sub of subscriptions || []) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify({ title, body })
-      )
-    } catch (err) {
-      console.error('Push failed:', err.message)
-    }
-  }
-}
-
-async function fetchNews(symbol) {
-  const [marketauxNews, finnhubNews] = await Promise.all([
-    fetchMarketauxNews(symbol),
-    fetchFinnhubNews(symbol),
-  ])
-  const combined = [...marketauxNews, ...finnhubNews]
-  if (combined.length === 0) return 'No recent news found.'
-  return combined.map(n => `- ${n}`).join('\n')
-}
+import { callHaiku, callSonnet, sendPushNotification } from '../../lib/ai'
 
 async function fetchMarketauxNews(symbol) {
   try {
@@ -59,6 +26,16 @@ async function fetchFinnhubNews(symbol) {
     if (!Array.isArray(data) || data.length === 0) return []
     return data.slice(0, 3).map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
   } catch { return [] }
+}
+
+async function fetchNews(symbol) {
+  const [marketauxNews, finnhubNews] = await Promise.all([
+    fetchMarketauxNews(symbol),
+    fetchFinnhubNews(symbol),
+  ])
+  const combined = [...marketauxNews, ...finnhubNews]
+  if (combined.length === 0) return 'No recent news found.'
+  return combined.map(n => `- ${n}`).join('\n')
 }
 
 export default async function handler(req, res) {
@@ -124,10 +101,13 @@ export default async function handler(req, res) {
         prompt_version: ANALYSIS_PROMPT_VERSION,
       }])
 
-      await sendNotification(
-        '🧠 Smart Alert',
-        `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary.slice(0, 80)}...`
-      )
+      await sendPushNotification({
+        title: '🧠 Smart Alert',
+        body: `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary.slice(0, 80)}...`,
+        assetSymbol: item.asset_symbol,
+        triggeredBy: 'smart_alert',
+        url: '/notifications',
+      })
 
       results.push({ symbol: item.asset_symbol, status: 'notified', reason: evaluation.reason })
     } catch (err) {
