@@ -22,6 +22,11 @@ const EMPTY_FORM = {
   threshold_percent: '',
 }
 
+const EMPTY_WATCHLIST_FORM = {
+  asset_symbol: '',
+  asset_type: 'etf',
+}
+
 function getScoreLabel(score) {
   if (score >= 4) return 'COMPRAR'
   if (score >= 2) return 'COMPRAR GRADUALMENTE'
@@ -63,26 +68,30 @@ function ScoreBar({ score }) {
 }
 
 function AnalysisCard({ a }) {
+  const triggeredLabel = {
+    automatic: '⚡ Automático',
+    manual: '👆 Manual',
+    smart_alert: '🧠 Smart Alert',
+  }[a.triggered_by] || a.triggered_by
+
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
         <span style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(a.created_at).toLocaleString('es-AR')}</span>
-        <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.5rem', borderRadius: '4px', color: '#444' }}>
-          {a.context}
-        </span>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.5rem', borderRadius: '4px', color: '#444' }}>{a.context}</span>
+          <span style={{ fontSize: '0.75rem', background: '#f0f9ff', padding: '0.1rem 0.5rem', borderRadius: '4px', color: '#0369a1' }}>{triggeredLabel}</span>
+        </div>
       </div>
-
       <p style={{ marginBottom: '0.6rem' }}><strong>📊 Qué pasó:</strong> {a.summary}</p>
       <p style={{ marginBottom: '0.6rem' }}><strong>🧠 Por qué:</strong> {a.explanation}</p>
       <p style={{ marginBottom: '0.6rem' }}><strong>🌍 Contexto:</strong> {a.context}</p>
       <p style={{ marginBottom: '0.6rem' }}><strong>📈 Interpretación:</strong> {a.interpretation}</p>
       <p style={{ marginBottom: '0.75rem' }}><strong>💡 Recomendación:</strong> {a.recommendation}</p>
-
       <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginBottom: '0.5rem' }}>
         <p style={{ marginBottom: '0.4rem' }}><strong>📊 Score:</strong></p>
         <ScoreBar score={a.score ?? 0} />
       </div>
-
       <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#555' }}>
         <strong>🔎 Confianza:</strong> {a.confidence}% — {getConfidenceLabel(a.confidence ?? 0)}
       </p>
@@ -93,7 +102,9 @@ function AnalysisCard({ a }) {
 export default function Home() {
   const [alerts, setAlerts] = useState([])
   const [analyses, setAnalyses] = useState([])
+  const [watchlist, setWatchlist] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
+  const [watchlistForm, setWatchlistForm] = useState(EMPTY_WATCHLIST_FORM)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [loading, setLoading] = useState(true)
@@ -104,23 +115,23 @@ export default function Home() {
   useEffect(() => {
     fetchAlerts()
     fetchAnalyses()
+    fetchWatchlist()
   }, [])
 
   async function fetchAlerts() {
-    const { data } = await supabase
-      .from('alerts')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('alerts').select('*').order('created_at', { ascending: false })
     setAlerts(data || [])
     setLoading(false)
   }
 
   async function fetchAnalyses() {
-    const { data } = await supabase
-      .from('alert_analyses')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('alert_analyses').select('*').order('created_at', { ascending: false })
     setAnalyses(data || [])
+  }
+
+  async function fetchWatchlist() {
+    const { data } = await supabase.from('watchlist').select('*').order('created_at', { ascending: false })
+    setWatchlist(data || [])
   }
 
   async function createAlert() {
@@ -163,6 +174,26 @@ export default function Home() {
     }).eq('id', id)
     setEditingId(null)
     fetchAlerts()
+  }
+
+  async function addToWatchlist() {
+    if (!watchlistForm.asset_symbol) return
+    await supabase.from('watchlist').insert([{
+      asset_symbol: watchlistForm.asset_symbol.toUpperCase(),
+      asset_type: watchlistForm.asset_type,
+    }])
+    setWatchlistForm(EMPTY_WATCHLIST_FORM)
+    fetchWatchlist()
+  }
+
+  async function removeFromWatchlist(id) {
+    await supabase.from('watchlist').delete().eq('id', id)
+    fetchWatchlist()
+  }
+
+  async function toggleWatchlistItem(id, current) {
+    await supabase.from('watchlist').update({ is_active: !current }).eq('id', id)
+    fetchWatchlist()
   }
 
   async function activateNotifications() {
@@ -242,17 +273,18 @@ export default function Home() {
       </button>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        {['alerts', 'analyses'].map(tab => (
+        {['alerts', 'watchlist', 'analyses'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{ ...btnStyle, background: activeTab === tab ? '#0070f3' : '#e2e8f0', color: activeTab === tab ? '#fff' : '#333', flex: 1 }}
+            style={{ ...btnStyle, background: activeTab === tab ? '#0070f3' : '#e2e8f0', color: activeTab === tab ? '#fff' : '#333', flex: 1, fontSize: '0.85rem' }}
           >
-            {tab === 'alerts' ? '🔔 Alertas' : '🧠 Análisis'}
+            {tab === 'alerts' ? '🔔 Alertas' : tab === 'watchlist' ? '👁 Watchlist' : '🧠 Análisis'}
           </button>
         ))}
       </div>
 
+      {/* Alerts Tab */}
       {activeTab === 'alerts' && (
         <>
           <div style={cardStyle}>
@@ -334,6 +366,56 @@ export default function Home() {
         </>
       )}
 
+      {/* Watchlist Tab */}
+      {activeTab === 'watchlist' && (
+        <>
+          <div style={cardStyle}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Agregar a watchlist</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <input
+                placeholder="Símbolo (ej: SPY, QQQ)"
+                value={watchlistForm.asset_symbol}
+                onChange={e => setWatchlistForm({ ...watchlistForm, asset_symbol: e.target.value })}
+                style={inputStyle}
+              />
+              <select value={watchlistForm.asset_type} onChange={e => setWatchlistForm({ ...watchlistForm, asset_type: e.target.value })} style={inputStyle}>
+                <option value="etf">ETF</option>
+                <option value="stock">Stock</option>
+                <option value="crypto">Crypto</option>
+              </select>
+              <button onClick={addToWatchlist} style={btnStyle}>Agregar</button>
+            </div>
+          </div>
+
+          <h2 style={{ margin: '1.5rem 0 1rem', fontSize: '1rem' }}>Mis activos</h2>
+          {watchlist.length === 0 && <p style={{ color: '#999' }}>No hay activos en la watchlist todavía.</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {watchlist.map(item => (
+              <div key={item.id} style={{ ...cardStyle, opacity: item.is_active ? 1 : 0.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>{item.asset_symbol}</strong>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#666', textTransform: 'uppercase' }}>{item.asset_type}</span>
+                    <p style={{ fontSize: '0.8rem', color: item.is_active ? '#16a34a' : '#999', marginTop: '0.25rem' }}>
+                      {item.is_active ? '🧠 Smart Alert activa' : 'Pausado'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={() => toggleWatchlistItem(item.id, item.is_active)} style={{ ...btnStyle, background: item.is_active ? '#f0ad4e' : '#5cb85c', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                      {item.is_active ? 'Pausar' : 'Activar'}
+                    </button>
+                    <button onClick={() => removeFromWatchlist(item.id)} style={{ ...btnStyle, background: '#d9534f', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}>
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Analyses Tab */}
       {activeTab === 'analyses' && (
         <>
           <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Historial de análisis</h2>
