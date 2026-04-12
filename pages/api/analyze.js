@@ -69,6 +69,10 @@ Output format (respond ONLY with this JSON, no extra text):
   })
 
   const data = await response.json()
+  console.log('Claude response:', JSON.stringify(data))
+  if (!data.content || !data.content[0]) {
+    throw new Error('Claude API error: ' + JSON.stringify(data))
+  }
   const text = data.content[0].text
   const clean = text.replace(/```json|```/g, '').trim()
   return JSON.parse(clean)
