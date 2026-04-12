@@ -592,7 +592,7 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                 <span style={{ fontSize: '20px', fontWeight: '700' }}>${parseFloat(price.current_price).toFixed(2)}</span>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: getChangeColor(price.change_day) }}>
-                  {price.change_day > 0 ? '+' : ''}{parseFloat(price.change_day).toFixed(2)}%
+                  {price.change_day > 0 ? '+' : ''}{parseFloat(price.change_day).toFixed(2)}% <span style={{ fontSize: '11px', fontWeight: '400', color: 'var(--text-tertiary)' }}>hoy</span>
                 </span>
               </div>
             ) : (
