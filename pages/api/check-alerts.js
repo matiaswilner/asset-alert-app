@@ -16,15 +16,32 @@ async function sendNotification(title, body) {
   for (const sub of subscriptions || []) {
     try {
       await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify({ title, body })
       )
     } catch (err) {
       console.error('Push failed:', err.message)
     }
+  }
+}
+
+async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asset-alert-app-red.vercel.app'
+    await fetch(`${baseUrl}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol,
+        assetType,
+        priceChange,
+        timeframe,
+        alertId,
+        triggeredBy: 'automatic',
+      }),
+    })
+  } catch (err) {
+    console.error('Analysis failed:', err.message)
   }
 }
 
@@ -79,48 +96,48 @@ export default async function handler(req, res) {
       let triggered = false
       let actualChange = 0
       let notifBody = ''
+      let timeframe = ''
 
       if (alert.condition === 'drop_day') {
         actualChange = price.changeDay
         triggered = price.changeDay <= -alert.threshold_percent
-        notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% hoy`
+        notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% hoy — hay un análisis disponible`
+        timeframe = '1 day'
       } else if (alert.condition === 'drop_week') {
         actualChange = price.changeWeek
         triggered = price.changeWeek <= -alert.threshold_percent
-        notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% esta semana`
+        notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% esta semana — hay un análisis disponible`
+        timeframe = '1 week'
       } else if (alert.condition === 'rise_day') {
         actualChange = price.changeDay
         triggered = price.changeDay >= alert.threshold_percent
-        notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% hoy`
+        notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% hoy — hay un análisis disponible`
+        timeframe = '1 day'
       } else if (alert.condition === 'rise_week') {
         actualChange = price.changeWeek
         triggered = price.changeWeek >= alert.threshold_percent
-        notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% esta semana`
+        notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% esta semana — hay un análisis disponible`
+        timeframe = '1 week'
       } else if (MIN_PERIOD_MAP[alert.condition]) {
         const period = MIN_PERIOD_MAP[alert.condition]
         const minPrice = MIN_PRICE_MAP[alert.condition](price)
         triggered = price.currentPrice <= minPrice
-        notifBody = `${alert.asset_symbol} tocó su mínimo de los últimos ${period.label} ($${price.currentPrice.toFixed(2)})`
+        notifBody = `${alert.asset_symbol} tocó su mínimo de los últimos ${period.label} — hay un análisis disponible`
+        timeframe = `${period.days} days`
+        actualChange = price.changeDay
       }
 
       if (triggered) {
+        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id)
         await sendNotification('⚠️ Alerta de precio', notifBody)
         await supabase
           .from('alerts')
           .update({ last_triggered_at: new Date().toISOString() })
           .eq('id', alert.id)
 
-        results.push({
-          symbol: alert.asset_symbol,
-          status: 'triggered',
-          change: actualChange ? actualChange.toFixed(2) + '%' : 'min reached',
-        })
+        results.push({ symbol: alert.asset_symbol, status: 'triggered', change: actualChange.toFixed(2) + '%' })
       } else {
-        results.push({
-          symbol: alert.asset_symbol,
-          status: 'ok',
-          change: actualChange ? actualChange.toFixed(2) + '%' : 'above min',
-        })
+        results.push({ symbol: alert.asset_symbol, status: 'ok', change: actualChange ? actualChange.toFixed(2) + '%' : 'above min' })
       }
     } catch (err) {
       results.push({ symbol: alert.asset_symbol, status: 'error', message: err.message })
