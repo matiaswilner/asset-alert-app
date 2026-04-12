@@ -1,29 +1,6 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
-import webpush from 'web-push'
-
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-)
-
-async function sendNotification(title, body) {
-  const { data: subscriptions } = await supabase
-    .from('push_subscriptions')
-    .select('*')
-
-  for (const sub of subscriptions || []) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify({ title, body })
-      )
-    } catch (err) {
-      console.error('Push failed:', err.message)
-    }
-  }
-}
+import { sendPushNotification } from '../../lib/ai'
 
 async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId, currentPrice, previousPrice) {
   try {
@@ -132,7 +109,13 @@ export default async function handler(req, res) {
       if (triggered) {
         const yesterdayPrice = (price.currentPrice / (1 + actualChange / 100)).toFixed(2)
         await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, price.currentPrice, yesterdayPrice)
-        await sendNotification('⚠️ Alerta de precio', notifBody)
+        await sendPushNotification({
+          title: '⚠️ Alerta de precio',
+          body: notifBody,
+          assetSymbol: alert.asset_symbol,
+          triggeredBy: 'automatic',
+          url: '/notifications',
+        })
         await supabase
           .from('alerts')
           .update({ last_triggered_at: new Date().toISOString() })
