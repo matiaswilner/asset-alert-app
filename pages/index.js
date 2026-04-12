@@ -253,7 +253,8 @@ export default function Home() {
   const [showWatchlistForm, setShowWatchlistForm] = useState(false)
 
   useEffect(() => {
-    const tab = window.location.pathname === '/notifications' ? 'notifications' : 'alerts'
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab') || 'alerts'
     setActiveTab(tab)
     fetchAll()
   }, [])
