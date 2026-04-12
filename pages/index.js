@@ -22,6 +22,74 @@ const EMPTY_FORM = {
   threshold_percent: '',
 }
 
+function getScoreLabel(score) {
+  if (score >= 4) return 'COMPRAR'
+  if (score >= 2) return 'COMPRAR GRADUALMENTE'
+  if (score >= 1) return 'CONSIDERAR'
+  if (score === 0) return 'NEUTRAL'
+  if (score >= -1) return 'PRECAUCIÓN'
+  if (score >= -3) return 'ESPERAR'
+  return 'EVITAR'
+}
+
+function getScoreColor(score) {
+  if (score >= 2) return '#16a34a'
+  if (score >= 0) return '#d97706'
+  return '#dc2626'
+}
+
+function getConfidenceLabel(confidence) {
+  if (confidence >= 75) return 'Señal clara'
+  if (confidence >= 50) return 'Señal moderadamente clara'
+  if (confidence >= 25) return 'Señal débil'
+  return 'Señal muy incierta'
+}
+
+function ScoreBar({ score }) {
+  const pct = ((score + 5) / 10) * 100
+  const color = getScoreColor(score)
+  return (
+    <div style={{ marginTop: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+        <span style={{ fontSize: '0.8rem', color: '#666' }}>-5</span>
+        <span style={{ fontWeight: '500', color }}>{score > 0 ? `+${score}` : score} — {getScoreLabel(score)}</span>
+        <span style={{ fontSize: '0.8rem', color: '#666' }}>+5</span>
+      </div>
+      <div style={{ background: '#e2e8f0', borderRadius: '999px', height: '8px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, background: color, height: '100%', borderRadius: '999px', transition: 'width 0.3s' }} />
+      </div>
+    </div>
+  )
+}
+
+function AnalysisCard({ a }) {
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <span style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(a.created_at).toLocaleString('es-AR')}</span>
+        <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.5rem', borderRadius: '4px', color: '#444' }}>
+          {a.context}
+        </span>
+      </div>
+
+      <p style={{ marginBottom: '0.6rem' }}><strong>📊 Qué pasó:</strong> {a.summary}</p>
+      <p style={{ marginBottom: '0.6rem' }}><strong>🧠 Por qué:</strong> {a.explanation}</p>
+      <p style={{ marginBottom: '0.6rem' }}><strong>🌍 Contexto:</strong> {a.context}</p>
+      <p style={{ marginBottom: '0.6rem' }}><strong>📈 Interpretación:</strong> {a.interpretation}</p>
+      <p style={{ marginBottom: '0.75rem' }}><strong>💡 Recomendación:</strong> {a.recommendation}</p>
+
+      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginBottom: '0.5rem' }}>
+        <p style={{ marginBottom: '0.4rem' }}><strong>📊 Score:</strong></p>
+        <ScoreBar score={a.score ?? 0} />
+      </div>
+
+      <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#555' }}>
+        <strong>🔎 Confianza:</strong> {a.confidence}% — {getConfidenceLabel(a.confidence ?? 0)}
+      </p>
+    </div>
+  )
+}
+
 export default function Home() {
   const [alerts, setAlerts] = useState([])
   const [analyses, setAnalyses] = useState([])
@@ -165,7 +233,6 @@ export default function Home() {
     <main style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
       <h1 style={{ marginBottom: '1.5rem' }}>Assetic</h1>
 
-      {/* Notifications */}
       <button
         onClick={activateNotifications}
         disabled={notifStatus === 'loading' || notifStatus === 'active'}
@@ -174,37 +241,24 @@ export default function Home() {
         {notifLabel}
       </button>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         {['alerts', 'analyses'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              ...btnStyle,
-              background: activeTab === tab ? '#0070f3' : '#e2e8f0',
-              color: activeTab === tab ? '#fff' : '#333',
-              flex: 1,
-            }}
+            style={{ ...btnStyle, background: activeTab === tab ? '#0070f3' : '#e2e8f0', color: activeTab === tab ? '#fff' : '#333', flex: 1 }}
           >
             {tab === 'alerts' ? '🔔 Alertas' : '🧠 Análisis'}
           </button>
         ))}
       </div>
 
-      {/* Alerts Tab */}
       {activeTab === 'alerts' && (
         <>
-          {/* Form */}
           <div style={cardStyle}>
             <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Nueva alerta</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <input
-                placeholder="Símbolo (ej: AAPL, BTC)"
-                value={form.asset_symbol}
-                onChange={e => setForm({ ...form, asset_symbol: e.target.value })}
-                style={inputStyle}
-              />
+              <input placeholder="Símbolo (ej: AAPL, BTC)" value={form.asset_symbol} onChange={e => setForm({ ...form, asset_symbol: e.target.value })} style={inputStyle} />
               <select value={form.asset_type} onChange={e => setForm({ ...form, asset_type: e.target.value })} style={inputStyle}>
                 <option value="stock">Stock</option>
                 <option value="etf">ETF</option>
@@ -216,20 +270,13 @@ export default function Home() {
                 ))}
               </select>
               {!MIN_CONDITIONS.includes(form.condition) && (
-                <input
-                  type="number"
-                  placeholder="Porcentaje (ej: 5)"
-                  value={form.threshold_percent}
-                  onChange={e => setForm({ ...form, threshold_percent: e.target.value })}
-                  style={inputStyle}
-                />
+                <input type="number" placeholder="Porcentaje (ej: 5)" value={form.threshold_percent} onChange={e => setForm({ ...form, threshold_percent: e.target.value })} style={inputStyle} />
               )}
               <button onClick={createAlert} style={btnStyle}>Crear alerta</button>
             </div>
           </div>
 
-          {/* Alert List */}
-          <h2 style={{ margin: '1.5rem 0 1rem', fontSize: '1rem' }}>Alertas activas</h2>
+          <h2 style={{ margin: '1.5rem 0 1rem', fontSize: '1rem' }}>Alertas</h2>
           {loading && <p>Cargando...</p>}
           {!loading && alerts.length === 0 && <p style={{ color: '#999' }}>No hay alertas todavía.</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -287,7 +334,6 @@ export default function Home() {
         </>
       )}
 
-      {/* Analyses Tab */}
       {activeTab === 'analyses' && (
         <>
           <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Historial de análisis</h2>
@@ -296,17 +342,7 @@ export default function Home() {
             <div key={symbol} style={{ marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>{symbol}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {items.map(a => (
-                  <div key={a.id} style={cardStyle}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#999' }}>{new Date(a.created_at).toLocaleString('es-AR')}</span>
-                      <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>{a.movement_type}</span>
-                    </div>
-                    <p style={{ fontWeight: '500', marginBottom: '0.4rem' }}>📋 {a.summary}</p>
-                    <p style={{ fontSize: '0.9rem', color: '#444', marginBottom: '0.4rem' }}>💡 {a.explanation}</p>
-                    <p style={{ fontSize: '0.9rem', color: '#2563eb' }}>🎯 {a.recommendation}</p>
-                  </div>
-                ))}
+                {items.map(a => <AnalysisCard key={a.id} a={a} />)}
               </div>
             </div>
           ))}
@@ -339,4 +375,5 @@ const cardStyle = {
   padding: '1rem',
   borderRadius: '8px',
   boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+  marginBottom: '0.5rem',
 }
