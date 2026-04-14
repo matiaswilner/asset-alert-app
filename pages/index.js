@@ -252,6 +252,7 @@ export default function Home() {
   const [showAlertForm, setShowAlertForm] = useState(false)
   const [showWatchlistForm, setShowWatchlistForm] = useState(false)
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
+  const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -424,6 +425,27 @@ export default function Home() {
     setAnalyzingSymbol(null)
   }
 
+  async function analyzeFromWatchlist(item) {
+    setAnalyzingSymbol(item.asset_symbol)
+    try {
+      await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: item.asset_symbol,
+          assetType: item.asset_type,
+          priceChange: 'manual request',
+          timeframe: '1 day',
+          alertId: null,
+          triggeredBy: 'manual',
+        }),
+      })
+      await fetchAnalyses()
+      setActiveTab('analyses')
+    } catch (err) { console.error(err) }
+    setAnalyzingSymbol(null)
+  }
+
   const groupedAnalyses = analyses.reduce((acc, a) => {
     if (!acc[a.asset_symbol]) acc[a.asset_symbol] = []
     acc[a.asset_symbol].push(a)
@@ -455,6 +477,39 @@ export default function Home() {
       </div>
     )
   }
+
+const SmartAlertModal = () => (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowSmartAlertInfo(false)}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px', width: '100%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700' }}>¿Cómo funcionan las Smart Alerts?</h3>
+          <button onClick={() => setShowSmartAlertInfo(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '16px' }}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', marginBottom: '6px' }}>🕐 Monitoreo automático</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>Tres veces por día, durante el horario de mercado, Assetic revisa cada activo de tu watchlist automáticamente.</p>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', marginBottom: '6px' }}>🧠 Evaluación inteligente</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>Para cada activo, una IA analiza el precio actual, el movimiento del día y las noticias más recientes. Si detecta algo relevante para un inversor de largo plazo — como una caída significativa o una oportunidad de compra — decide notificarte. Si no hay nada importante, no te molesta.</p>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', marginBottom: '6px' }}>📊 Análisis completo</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>Cuando decide que vale la pena avisarte, genera un análisis completo: qué pasó, por qué pasó, y si representa una oportunidad gradual de compra o es mejor esperar. Todo en lenguaje simple, sin jerga financiera.</p>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', marginBottom: '6px' }}>🔕 Sin ruido</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>A diferencia de las alertas manuales donde vos definís un umbral fijo, las Smart Alerts entienden el contexto. Un movimiento del 2% en un día tranquilo no es lo mismo que un 2% en medio de una caída de mercado. La IA evalúa ambos factores antes de notificarte.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px', overflow: 'hidden' }}>
@@ -588,7 +643,10 @@ export default function Home() {
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Watchlist</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Watchlist</h2>
+                  <button onClick={() => setShowSmartAlertInfo(true)} style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
+                </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Monitoreo inteligente con Smart Alerts</p>
               </div>
               <Button onClick={() => setShowWatchlistForm(!showWatchlistForm)} variant="purple">
@@ -651,11 +709,14 @@ export default function Home() {
           />
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <Button onClick={() => toggleWatchlistItem(item.id, item.is_active)} variant={item.is_active ? 'warning' : 'success'} style={{ fontSize: '12px', padding: '8px 12px' }}>
-            {item.is_active ? 'Pausar' : 'Activar'}
-          </Button>
-          <Button onClick={() => removeFromWatchlist(item.id)} variant="danger" style={{ fontSize: '12px', padding: '8px 12px' }}>Quitar</Button>
-        </div>
+                            <Button onClick={() => analyzeFromWatchlist(item)} disabled={analyzingSymbol === item.asset_symbol} variant="purple" style={{ fontSize: '12px', padding: '8px 12px' }}>
+                              {analyzingSymbol === item.asset_symbol ? '...' : '🧠'}
+                            </Button>
+                            <Button onClick={() => toggleWatchlistItem(item.id, item.is_active)} variant={item.is_active ? 'warning' : 'success'} style={{ fontSize: '12px', padding: '8px 12px' }}>
+                              {item.is_active ? 'Pausar' : 'Activar'}
+                            </Button>
+                            <Button onClick={() => removeFromWatchlist(item.id)} variant="danger" style={{ fontSize: '12px', padding: '8px 12px' }}>Quitar</Button>
+                          </div>
       </Card>
     )
   })}
@@ -727,7 +788,7 @@ export default function Home() {
           </div>
         )}
       </div>
-
+{showSmartAlertInfo && <SmartAlertModal />}
       {/* Bottom Navigation */}
       <div style={{
         position: 'fixed',
