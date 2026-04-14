@@ -251,11 +251,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('alerts')
   const [showAlertForm, setShowAlertForm] = useState(false)
   const [showWatchlistForm, setShowWatchlistForm] = useState(false)
+  const [expandedNotificationId, setExpandedNotificationId] = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab') || 'alerts'
+    const notifId = params.get('notifId')
     setActiveTab(tab)
+    if (notifId) setExpandedNotificationId(parseInt(notifId))
     fetchAll()
   }, [])
 
@@ -451,7 +454,10 @@ export default function Home() {
         {activeTab === 'alerts' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Alertas</h2>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Alertas</h2>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Alertas manuales por condición de precio</p>
+              </div>
               <Button onClick={() => setShowAlertForm(!showAlertForm)} variant="purple">
                 {showAlertForm ? '✕ Cerrar' : '+ Nueva'}
               </Button>
@@ -550,7 +556,10 @@ export default function Home() {
         {activeTab === 'watchlist' && (
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Watchlist</h2>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Watchlist</h2>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Monitoreo inteligente con Smart Alerts</p>
+              </div>
               <Button onClick={() => setShowWatchlistForm(!showWatchlistForm)} variant="purple">
                 {showWatchlistForm ? '✕ Cerrar' : '+ Agregar'}
               </Button>
@@ -645,7 +654,10 @@ export default function Home() {
         {/* Notifications Tab */}
         {activeTab === 'notifications' && (
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>Historial</h2>
+            <div style={{ marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Historial</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Notificaciones recibidas</p>
+            </div>
             {notifications.length === 0 ? (
               <EmptyState icon="📋" title="Sin notificaciones" subtitle="Las notificaciones recibidas aparecerán acá" />
             ) : (
@@ -657,8 +669,9 @@ export default function Home() {
                     smart_alert: { color: 'var(--positive)', bg: 'var(--positive-dim)', label: '🧠 Smart' },
                   }
                   const t = triggeredColors[n.triggered_by] || triggeredColors.automatic
+                  const isExpanded = expandedNotificationId === n.id
                   return (
-                    <Card key={n.id}>
+                    <Card key={n.id} onClick={() => setExpandedNotificationId(isExpanded ? null : n.id)} style={{ cursor: 'pointer' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           {n.asset_symbol && <span style={{ fontSize: '15px', fontWeight: '700' }}>{n.asset_symbol}</span>}
@@ -669,7 +682,15 @@ export default function Home() {
                         </span>
                       </div>
                       <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>{n.title}</p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{n.body}</p>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', display: isExpanded ? 'block' : '-webkit-box', WebkitLineClamp: isExpanded ? 'unset' : 2, WebkitBoxOrient: 'vertical', overflow: isExpanded ? 'visible' : 'hidden' }}>
+                        {n.body}
+                      </p>
+                      {!isExpanded && n.body?.length > 100 && (
+                        <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>▼ ver más</p>
+                      )}
+                      {isExpanded && (
+                        <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>▲ ver menos</p>
+                      )}
                     </Card>
                   )
                 })}
