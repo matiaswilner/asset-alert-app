@@ -4,14 +4,14 @@ self.addEventListener('push', function(event) {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
-      data: { url: data.url || '/notifications' },
+      data: { url: data.url || '/?tab=notifications' },
     })
   )
 })
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close()
-  const url = event.notification.data?.url || '/notifications'
+  const url = event.notification.data?.url || '/?tab=notifications'
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
