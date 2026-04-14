@@ -16,11 +16,10 @@ self.addEventListener('notificationclick', function(event) {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(targetUrl)
-          return client.focus()
-        }
+      const activeClient = clientList.find(c => c.url.includes(self.location.origin))
+      if (activeClient) {
+        activeClient.postMessage({ type: 'OPEN_NOTIFICATION', notifId })
+        return activeClient.focus()
       }
       return clients.openWindow(targetUrl)
     })
