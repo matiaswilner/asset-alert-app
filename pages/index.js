@@ -682,15 +682,12 @@ export default function Home() {
                         </span>
                       </div>
                       <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>{n.title}</p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', display: isExpanded ? 'block' : '-webkit-box', WebkitLineClamp: isExpanded ? 'unset' : 2, WebkitBoxOrient: 'vertical', overflow: isExpanded ? 'visible' : 'hidden' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', maxHeight: isExpanded ? '1000px' : '40px', transition: 'max-height 0.3s ease' }}>
                         {n.body}
                       </p>
-                      {!isExpanded && n.body?.length > 100 && (
-                        <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>▼ ver más</p>
-                      )}
-                      {isExpanded && (
-                        <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>▲ ver menos</p>
-                      )}
+                      <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>
+                        {isExpanded ? '▲ ver menos' : '▼ ver más'}
+                      </p>
                     </Card>
                   )
                 })}
