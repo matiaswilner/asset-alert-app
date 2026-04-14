@@ -5,11 +5,11 @@ export default function Notifications() {
   const router = useRouter()
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const notifId = params.get('notifId')
-    const query = notifId ? `?tab=notifications&notifId=${notifId}` : '?tab=notifications'
-    router.replace(`/${query}`)
-  }, [])
+    if (!router.isReady) return
+    const notifId = router.query.notifId
+    const query = notifId ? `/?tab=notifications&notifId=${notifId}` : '/?tab=notifications'
+    router.replace(query)
+  }, [router.isReady])
 
   return null
 }
