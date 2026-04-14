@@ -103,7 +103,7 @@ export default async function handler(req, res) {
 
       await sendPushNotification({
         title: '🧠 Smart Alert',
-        body: `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary.slice(0, 80)}...`,
+        body: `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary}`,
         assetSymbol: item.asset_symbol,
         triggeredBy: 'smart_alert',
         url: '/notifications',
