@@ -1,18 +1,17 @@
 self.addEventListener('push', function(event) {
   const data = event.data.json()
-
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
-      data: { url: data.url || '/' },
+      data: { url: data.url || '/notifications' },
     })
   )
 })
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close()
-  const url = event.notification.data?.url || '/'
+  const url = event.notification.data?.url || '/notifications'
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
