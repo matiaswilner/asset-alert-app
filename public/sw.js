@@ -19,7 +19,8 @@ self.addEventListener('notificationclick', function(event) {
       const activeClient = clientList.find(c => c.url.includes(self.location.origin))
       if (activeClient) {
         activeClient.postMessage({ type: 'OPEN_NOTIFICATION', notifId })
-        return activeClient.focus()
+        activeClient.focus()
+        return
       }
       return clients.openWindow(targetUrl)
     })
