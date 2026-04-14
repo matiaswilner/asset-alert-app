@@ -682,7 +682,7 @@ export default function Home() {
                         </span>
                       </div>
                       <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>{n.title}</p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', maxHeight: isExpanded ? '1000px' : '40px', transition: 'max-height 0.3s ease' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', maxHeight: isExpanded ? '2000px' : '40px', transition: 'max-height 0.3s ease' }}>
                         {n.body}
                       </p>
                       <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>
