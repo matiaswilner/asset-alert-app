@@ -269,9 +269,14 @@ export default function Home() {
 
   async function fetchAll() {
     try {
-      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices()])
+      await fetchAlerts()
+      await fetchAnalyses()
+      await fetchWatchlist()
+      await fetchNotifications()
+      await fetchPrices()
     } catch (err) {
-      console.error('fetchAll error:', err)
+      console.error('fetchAll error:', err.message)
+      alert('Error: ' + err.message)
     } finally {
       setLoading(false)
     }
