@@ -4,7 +4,7 @@ self.addEventListener('push', function(event) {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
-      data: { url: data.url, notifId: data.notifId },
+      data: { notifId: data.notifId },
     })
   )
 })
@@ -12,16 +12,17 @@ self.addEventListener('push', function(event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close()
   const notifId = event.notification.data?.notifId
-  const url = '/'
+  const targetUrl = '/?tab=notifications' + (notifId ? `&notifId=${notifId}` : '')
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      const target = clientList.find(c => c.url.includes(self.location.origin))
-      if (target) {
-        target.postMessage({ type: 'OPEN_NOTIFICATION', notifId })
-        return target.focus()
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(targetUrl)
+          return client.focus()
+        }
       }
-      return clients.openWindow(url + '?tab=notifications' + (notifId ? `&notifId=${notifId}` : ''))
+      return clients.openWindow(targetUrl)
     })
   )
 })
