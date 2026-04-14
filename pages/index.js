@@ -254,19 +254,35 @@ export default function Home() {
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !navigator.serviceWorker) return
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab') || 'alerts'
+    const notifId = params.get('notifId')
+    setActiveTab(tab)
+    if (notifId) setExpandedNotificationId(parseInt(notifId))
+    fetchAll()
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!('serviceWorker' in navigator)) return
 
     const handler = (event) => {
-      if (event.data?.type === 'OPEN_NOTIFICATION') {
+      if (event?.data?.type === 'OPEN_NOTIFICATION') {
         setActiveTab('notifications')
         if (event.data.notifId) setExpandedNotificationId(event.data.notifId)
       }
     }
 
-    navigator.serviceWorker.addEventListener('message', handler)
-    return () => navigator.serviceWorker.removeEventListener('message', handler)
-  }, [])
+    navigator.serviceWorker.ready.then(() => {
+      navigator.serviceWorker.addEventListener('message', handler)
+    })
 
+    return () => {
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', handler)
+      }
+    }
+  }, [])
   async function fetchAll() {
     try {
       await fetchAlerts()
