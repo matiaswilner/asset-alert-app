@@ -254,12 +254,17 @@ export default function Home() {
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const tab = params.get('tab') || 'alerts'
-    const notifId = params.get('notifId')
-    setActiveTab(tab)
-    if (notifId) setExpandedNotificationId(parseInt(notifId))
-    fetchAll()
+    if (typeof window === 'undefined' || !navigator.serviceWorker) return
+
+    const handler = (event) => {
+      if (event.data?.type === 'OPEN_NOTIFICATION') {
+        setActiveTab('notifications')
+        if (event.data.notifId) setExpandedNotificationId(event.data.notifId)
+      }
+    }
+
+    navigator.serviceWorker.addEventListener('message', handler)
+    return () => navigator.serviceWorker.removeEventListener('message', handler)
   }, [])
 
   async function fetchAll() {
