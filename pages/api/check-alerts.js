@@ -2,7 +2,7 @@ import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
 import { sendPushNotification } from '../../lib/ai'
 
-async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId, currentPrice, previousPrice) {
+async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId, currentPrice, previousPrice, userId) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asset-alert-app-red.vercel.app'
     await fetch(`${baseUrl}/api/analyze`, {
@@ -17,6 +17,7 @@ async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertI
         previousPrice,
         alertId,
         triggeredBy: 'automatic',
+        userId,
       }),
     })
   } catch (err) {
@@ -108,13 +109,13 @@ export default async function handler(req, res) {
 
       if (triggered) {
         const yesterdayPrice = (price.currentPrice / (1 + actualChange / 100)).toFixed(2)
-        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, price.currentPrice, yesterdayPrice)
+        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, price.currentPrice, yesterdayPrice, alert.user_id)
         await sendPushNotification({
           title: '⚠️ Alerta de precio',
           body: notifBody,
           assetSymbol: alert.asset_symbol,
           triggeredBy: 'automatic',
-          url: '/notifications',
+          userId: alert.user_id,
         })
         await supabase
           .from('alerts')
