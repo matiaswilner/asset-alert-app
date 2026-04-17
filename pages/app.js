@@ -199,7 +199,6 @@ export default function App() {
   }
 
   async function analyzeManually(alert) {
-    console.log('user at analyze time:', user?.id)
     setAnalyzingSymbol(alert.asset_symbol)
     try {
       const timeframe = alert.condition.includes('day') ? '1 day' :
