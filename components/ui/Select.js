@@ -1,0 +1,20 @@
+export default function Select({ children, style = {}, ...props }) {
+  return (
+    <select
+      {...props}
+      style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border)',
+        borderRadius: '10px',
+        padding: '12px 14px',
+        color: 'var(--text-primary)',
+        fontSize: '15px',
+        width: '100%',
+        outline: 'none',
+        ...style,
+      }}
+    >
+      {children}
+    </select>
+  )
+}
