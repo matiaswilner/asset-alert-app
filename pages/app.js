@@ -228,6 +228,18 @@ export default function App() {
     } catch (err) { console.error(err) }
     setAnalyzingSymbol(null)
   }
+
+  async function sendTestNotification() {
+    try {
+      await fetch('/api/send-test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id }),
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
   
   const notifConfig = {
     idle: { label: '🔔 Activar notificaciones', bg: 'var(--accent)', color: '#fff' },
@@ -279,17 +291,36 @@ export default function App() {
       {/* Header */}
       <div style={{ padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src="/icon-192.png" alt="Assetic" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+          <img
+            src="/icon-192.png"
+            alt="Assetic"
+            style={{ width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer' }}
+            onClick={() => router.push('/admin')}
+          />
           <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
         </div>
-        <button
-          onClick={activateNotifications}
-          disabled={notifStatus === 'loading' || notifStatus === 'active'}
-          style={{ background: nc.bg, color: nc.color, border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-        >
-          {nc.label}
-        </button>
+        {notifStatus !== 'active' && (
+          <button
+            onClick={activateNotifications}
+            disabled={notifStatus === 'loading'}
+            style={{ background: nc.bg, color: nc.color, border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+          >
+            {nc.label}
+          </button>
+        )}
       </div>
+
+{/* Test notification button */}
+      {notifStatus === 'active' && (
+        <div style={{ padding: '8px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={sendTestNotification}
+            style={{ background: 'none', border: 'none', fontSize: '11px', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px 8px' }}
+          >
+            🔔 probar notificación
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
