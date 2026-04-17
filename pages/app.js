@@ -188,7 +188,7 @@ export default function App() {
       await fetch('/api/save-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub),
+        body: JSON.stringify({ ...sub, userId: user?.id }),
       })
       setNotifStatus('active')
     } catch (err) {
