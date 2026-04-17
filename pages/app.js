@@ -121,12 +121,13 @@ export default function App() {
   }
 
   async function createAlert() {
-    if (!form.asset_symbol) return
+    if (!form.asset_symbol || !user) return
     if (!MIN_CONDITIONS.includes(form.condition) && !form.threshold_percent) return
     await supabase.from('alerts').insert([{
       ...form,
       asset_symbol: form.asset_symbol.toUpperCase(),
       threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
+      user_id: user.id,
     }])
     setForm(EMPTY_FORM)
     setShowAlertForm(false)
@@ -153,10 +154,11 @@ export default function App() {
   }
 
   async function addToWatchlist() {
-    if (!watchlistForm.asset_symbol) return
+    if (!watchlistForm.asset_symbol || !user) return
     await supabase.from('watchlist').insert([{
       asset_symbol: watchlistForm.asset_symbol.toUpperCase(),
       asset_type: watchlistForm.asset_type,
+      user_id: user.id,
     }])
     setWatchlistForm(EMPTY_WATCHLIST_FORM)
     setShowWatchlistForm(false)
