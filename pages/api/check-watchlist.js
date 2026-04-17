@@ -99,6 +99,7 @@ export default async function handler(req, res) {
         confidence: analysis.confidence,
         triggered_by: 'smart_alert',
         prompt_version: ANALYSIS_PROMPT_VERSION,
+        user_id: item.user_id,
       }])
 
       await sendPushNotification({
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
         body: `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary}`,
         assetSymbol: item.asset_symbol,
         triggeredBy: 'smart_alert',
-        url: '/notifications',
+        userId: item.user_id,
       })
 
       results.push({ symbol: item.asset_symbol, status: 'notified', reason: evaluation.reason })
