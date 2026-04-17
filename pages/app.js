@@ -295,7 +295,11 @@ export default function App() {
             src="/icon-192.png"
             alt="Assetic"
             style={{ width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer' }}
-            onClick={() => router.push('/admin')}
+            onClick={() => {
+              if (user?.id === 'b0ac5859-b7bb-475d-85b0-dcea19dd6012') {
+                router.push('/admin')
+              }
+            }}
           />
           <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
         </div>
