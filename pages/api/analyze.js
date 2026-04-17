@@ -10,12 +10,8 @@ async function fetchMarketauxNews(symbol) {
     )
     const data = await response.json()
     if (!data.data || data.data.length === 0) return []
-    return data.data
-      .slice(0, 4)
-      .map(a => `[Marketaux] ${a.title}: ${a.description || ''}`)
-  } catch {
-    return []
-  }
+    return data.data.slice(0, 4).map(a => `[Marketaux] ${a.title}: ${a.description || ''}`)
+  } catch { return [] }
 }
 
 async function fetchFinnhubNews(symbol) {
@@ -27,13 +23,10 @@ async function fetchFinnhubNews(symbol) {
     )
     const data = await response.json()
     if (!Array.isArray(data) || data.length === 0) return []
-    return data
-      .slice(0, 4)
-      .map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
-  } catch {
-    return []
-  }
+    return data.slice(0, 4).map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
+  } catch { return [] }
 }
+
 async function fetchNews(symbol) {
   const [marketauxNews, finnhubNews] = await Promise.all([
     fetchMarketauxNews(symbol),
@@ -49,14 +42,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy = 'manual' } = req.body
+  const { symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy = 'manual', userId } = req.body
 
   if (!symbol || !timeframe) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
   try {
-    // Si es manual, buscamos el precio real
     let resolvedPriceChange = priceChange
     let resolvedCurrentPrice = currentPrice
     let resolvedPreviousPrice = previousPrice
@@ -94,6 +86,7 @@ export default async function handler(req, res) {
         confidence: analysis.confidence,
         triggered_by: triggeredBy,
         prompt_version: ANALYSIS_PROMPT_VERSION,
+        user_id: userId || null,
       }])
       .select()
       .single()
