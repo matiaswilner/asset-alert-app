@@ -205,7 +205,7 @@ export default function App() {
       await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: alert.asset_symbol, assetType: alert.asset_type, priceChange: 'manual request', timeframe, alertId: alert.id, triggeredBy: 'manual' }),
+        body: JSON.stringify({ symbol: alert.asset_symbol, assetType: alert.asset_type, priceChange: 'manual request', timeframe, alertId: alert.id, triggeredBy: 'manual', userId: user?.id }),
       })
       await fetchAnalyses()
       setActiveTab('analyses')
@@ -219,14 +219,14 @@ export default function App() {
       await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type, priceChange: 'manual request', timeframe: '1 day', alertId: null, triggeredBy: 'manual' }),
+        body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type, priceChange: 'manual request', timeframe: '1 day', alertId: null, triggeredBy: 'manual', userId: user?.id }),
       })
       await fetchAnalyses()
       setActiveTab('analyses')
     } catch (err) { console.error(err) }
     setAnalyzingSymbol(null)
   }
-
+  
   const notifConfig = {
     idle: { label: '🔔 Activar notificaciones', bg: 'var(--accent)', color: '#fff' },
     loading: { label: 'Activando...', bg: 'var(--bg-tertiary)', color: 'var(--text-secondary)' },
