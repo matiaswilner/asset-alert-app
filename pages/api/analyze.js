@@ -43,7 +43,6 @@ export default async function handler(req, res) {
   }
 
   const { symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy = 'manual', userId } = req.body
-  console.log('analyze called with userId:', userId, 'symbol:', symbol)
 
   if (!symbol || !timeframe) {
     return res.status(400).json({ error: 'Missing required fields' })
