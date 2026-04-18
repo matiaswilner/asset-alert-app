@@ -303,6 +303,12 @@ export default function App() {
           />
           <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
         </div>
+        <button
+          onClick={() => router.push('/onboarding')}
+          style={{ background: 'var(--bg-secondary)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          ?
+        </button>
         {notifStatus !== 'active' && (
           <button
             onClick={activateNotifications}
