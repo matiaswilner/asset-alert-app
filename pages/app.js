@@ -472,6 +472,7 @@ export default function App() {
               onEdit={editAlert}
               onAnalyze={analyzeManually}
               analyzingSymbol={analyzingSymbol}
+              analyses={analyses}
             />
           </div>
         )}
