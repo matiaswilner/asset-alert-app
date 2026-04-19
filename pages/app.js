@@ -61,6 +61,14 @@ export default function App() {
       const notifId = params.get('notifId')
       setActiveTab(tab)
       if (notifId) setExpandedNotificationId(parseInt(notifId))
+
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+      if (data && data.length > 0) setNotifStatus('active')
+
       await fetchAll()
     }
     init()
@@ -85,21 +93,12 @@ export default function App() {
 
   async function fetchAll() {
     try {
-      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices(), fetchNotifStatus()])
+      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices()])
     } catch (err) {
       console.error('fetchAll error:', err.message)
     } finally {
       setLoading(false)
     }
-  }
-
-  async function fetchNotifStatus() {
-    const { data } = await supabase
-      .from('push_subscriptions')
-      .select('id')
-      .eq('user_id', user?.id)
-      .limit(1)
-    if (data && data.length > 0) setNotifStatus('active')
   }
 
   async function fetchAlerts() {
