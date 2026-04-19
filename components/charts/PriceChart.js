@@ -188,9 +188,23 @@ export default function PriceChart({ symbol, assetType, analyses = [] }) {
   }
 
   if (!data.length) {
+    const today = new Date()
+    const isWeekend = today.getDay() === 0 || today.getDay() === 6
+    const isShortPeriod = ['1D', '3D'].includes(activePeriod)
+
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
-        <p style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>Sin datos para este período</p>
+      <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px' }}>
+          {isWeekend && isShortPeriod ? '📅' : '📊'}
+        </div>
+        <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+          {isWeekend && isShortPeriod ? 'Mercado cerrado' : 'Sin datos para este período'}
+        </p>
+        <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: '1.6' }}>
+          {isWeekend && isShortPeriod
+            ? 'Los mercados no operan los sábados y domingos. Los datos se actualizan los días hábiles después del cierre.'
+            : 'No hay datos disponibles todavía. Volvé a intentar más tarde.'}
+        </p>
       </div>
     )
   }
