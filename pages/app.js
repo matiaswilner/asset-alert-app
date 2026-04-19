@@ -53,6 +53,12 @@ export default function App() {
   const [analysisDone, setAnalysisDone] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [toastSymbol, setToastSymbol] = useState('')
+  const [errorToast, setErrorToast] = useState(null)
+
+  function showError(message) {
+    setErrorToast(message)
+    setTimeout(() => setErrorToast(null), 4000)
+  }
 
   useEffect(() => {
     async function init() {
@@ -97,11 +103,17 @@ export default function App() {
   useEffect(() => {
     if (showSettings || showSmartAlertInfo) {
       document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
     } else {
       document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
     }
     return () => {
       document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
     }
   }, [showSettings, showSmartAlertInfo])
 
@@ -145,76 +157,101 @@ export default function App() {
   async function createAlert() {
     if (!form.asset_symbol || !user) return
     if (!MIN_CONDITIONS.includes(form.condition) && !form.threshold_percent) return
-    await supabase.from('alerts').insert([{
-      ...form,
-      asset_symbol: form.asset_symbol.toUpperCase(),
-      threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
-      user_id: user.id,
-    }])
-
-    fetch('/api/init-price-history', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: form.asset_symbol.toUpperCase(),
-        assetType: form.asset_type,
-      }),
-    }).catch(err => console.error('init-price-history error:', err))
-
-    setForm(EMPTY_FORM)
-    setShowAlertForm(false)
-    fetchAlerts()
+    try {
+      const { error } = await supabase.from('alerts').insert([{
+        ...form,
+        asset_symbol: form.asset_symbol.toUpperCase(),
+        threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
+        user_id: user.id,
+      }])
+      if (error) throw new Error(error.message)
+      fetch('/api/init-price-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: form.asset_symbol.toUpperCase(), assetType: form.asset_type }),
+      }).catch(() => {})
+      setForm(EMPTY_FORM)
+      setShowAlertForm(false)
+      fetchAlerts()
+    } catch (err) {
+      showError('Error al crear la alerta. Intentá de nuevo.')
+    }
   }
 
   async function deleteAlert(id) {
-    await supabase.from('alerts').delete().eq('id', id)
-    fetchAlerts()
+    try {
+      const { error } = await supabase.from('alerts').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchAlerts()
+    } catch {
+      showError('Error al eliminar la alerta.')
+    }
   }
 
   async function toggleAlert(id, current) {
-    await supabase.from('alerts').update({ is_active: !current }).eq('id', id)
-    fetchAlerts()
+    try {
+      const { error } = await supabase.from('alerts').update({ is_active: !current }).eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchAlerts()
+    } catch {
+      showError('Error al actualizar la alerta.')
+    }
   }
 
   async function editAlert(id, editForm) {
-    await supabase.from('alerts').update({
-      ...editForm,
-      asset_symbol: editForm.asset_symbol.toUpperCase(),
-      threshold_percent: editForm.threshold_percent ? parseFloat(editForm.threshold_percent) : null,
-    }).eq('id', id)
-    fetchAlerts()
+    try {
+      const { error } = await supabase.from('alerts').update({
+        ...editForm,
+        asset_symbol: editForm.asset_symbol.toUpperCase(),
+        threshold_percent: editForm.threshold_percent ? parseFloat(editForm.threshold_percent) : null,
+      }).eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchAlerts()
+    } catch {
+      showError('Error al guardar los cambios.')
+    }
   }
 
   async function addToWatchlist() {
     if (!watchlistForm.asset_symbol || !user) return
-    await supabase.from('watchlist').insert([{
-      asset_symbol: watchlistForm.asset_symbol.toUpperCase(),
-      asset_type: watchlistForm.asset_type,
-      user_id: user.id,
-    }])
-
-    fetch('/api/init-price-history', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: watchlistForm.asset_symbol.toUpperCase(),
-        assetType: watchlistForm.asset_type,
-      }),
-    }).catch(err => console.error('init-price-history error:', err))
-
-    setWatchlistForm(EMPTY_WATCHLIST_FORM)
-    setShowWatchlistForm(false)
-    fetchWatchlist()
+    try {
+      const { error } = await supabase.from('watchlist').insert([{
+        asset_symbol: watchlistForm.asset_symbol.toUpperCase(),
+        asset_type: watchlistForm.asset_type,
+        user_id: user.id,
+      }])
+      if (error) throw new Error(error.message)
+      fetch('/api/init-price-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: watchlistForm.asset_symbol.toUpperCase(), assetType: watchlistForm.asset_type }),
+      }).catch(() => {})
+      setWatchlistForm(EMPTY_WATCHLIST_FORM)
+      setShowWatchlistForm(false)
+      fetchWatchlist()
+    } catch {
+      showError('Error al agregar a la watchlist. El activo puede ya estar agregado.')
+    }
   }
 
   async function removeFromWatchlist(id) {
-    await supabase.from('watchlist').delete().eq('id', id)
-    fetchWatchlist()
+    try {
+      const { error } = await supabase.from('watchlist').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchWatchlist()
+    } catch {
+      showError('Error al quitar el activo.')
+    }
   }
 
   async function toggleWatchlistItem(id, current) {
-    await supabase.from('watchlist').update({ is_active: !current }).eq('id', id)
-    fetchWatchlist()
+    try {
+      const { error } = await supabase.from('watchlist').update({ is_active: !current }).eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchWatchlist()
+    } catch {
+      showError('Error al actualizar el activo.')
+    }
   }
 
   async function activateNotifications() {
@@ -235,20 +272,22 @@ export default function App() {
         body: JSON.stringify({ ...sub, userId: user?.id }),
       })
       setNotifStatus('active')
-    } catch (err) {
-      setNotifStatus('error')
+    } catch {
+      setNotifStatus('idle')
+      showError('Error al activar las notificaciones. Intentá de nuevo.')
     }
   }
 
   async function sendTestNotification() {
     try {
-      await fetch('/api/send-test-notification', {
+      const res = await fetch('/api/send-test-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id }),
       })
-    } catch (err) {
-      console.error(err)
+      if (!res.ok) throw new Error()
+    } catch {
+      showError('Error al enviar la notificación de prueba.')
     }
   }
 
@@ -260,11 +299,12 @@ export default function App() {
       const timeframe = alert.condition.includes('day') ? '1 day' :
                         alert.condition.includes('week') ? '1 week' :
                         alert.condition.replace('min_', '').replace('d', ' days')
-      await fetch('/api/analyze', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: alert.asset_symbol, assetType: alert.asset_type, priceChange: 'manual request', timeframe, alertId: alert.id, triggeredBy: 'manual', userId: user?.id }),
       })
+      if (!res.ok) throw new Error()
       setAnalysisDone(true)
       await fetchAnalyses()
       setTimeout(() => {
@@ -274,7 +314,10 @@ export default function App() {
         setShowToast(true)
         setTimeout(() => setShowToast(false), 4000)
       }, 1000)
-    } catch (err) { console.error(err) }
+    } catch {
+      setAnalysisProgress(null)
+      showError(`Error al analizar ${alert.asset_symbol}. Intentá de nuevo.`)
+    }
     setAnalyzingSymbol(null)
   }
 
@@ -283,11 +326,12 @@ export default function App() {
     setAnalysisProgress(item.asset_symbol)
     setAnalysisDone(false)
     try {
-      await fetch('/api/analyze', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type, priceChange: 'manual request', timeframe: '1 day', alertId: null, triggeredBy: 'manual', userId: user?.id }),
       })
+      if (!res.ok) throw new Error()
       setAnalysisDone(true)
       await fetchAnalyses()
       setTimeout(() => {
@@ -297,7 +341,10 @@ export default function App() {
         setShowToast(true)
         setTimeout(() => setShowToast(false), 4000)
       }, 1000)
-    } catch (err) { console.error(err) }
+    } catch {
+      setAnalysisProgress(null)
+      showError(`Error al analizar ${item.asset_symbol}. Intentá de nuevo.`)
+    }
     setAnalyzingSymbol(null)
   }
 
@@ -343,13 +390,11 @@ export default function App() {
           <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Configuración</h3>
           <button onClick={() => setShowSettings(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '16px' }}>✕</button>
         </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
             <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cuenta</p>
             <p style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: '500' }}>{user?.email}</p>
           </div>
-
           <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
             <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notificaciones</p>
             {notifStatus === 'active' ? (
@@ -360,35 +405,21 @@ export default function App() {
                 </Button>
               </div>
             ) : (
-              <Button
-                onClick={activateNotifications}
-                disabled={notifStatus === 'loading'}
-                style={{ width: '100%', padding: '10px', fontSize: '13px' }}
-              >
+              <Button onClick={activateNotifications} disabled={notifStatus === 'loading'} style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
                 {notifStatus === 'loading' ? 'Activando...' : '🔔 Activar notificaciones'}
               </Button>
             )}
           </div>
-
           <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
             <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ayuda</p>
-            <Button
-              onClick={() => { setShowSettings(false); router.push('/onboarding') }}
-              variant="ghost"
-              style={{ width: '100%', padding: '10px', fontSize: '13px' }}
-            >
+            <Button onClick={() => { setShowSettings(false); router.push('/onboarding') }} variant="ghost" style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
               ❓ Ver tutorial de la app
             </Button>
           </div>
-
           {user?.id === 'b0ac5859-b7bb-475d-85b0-dcea19dd6012' && (
             <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
               <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin</p>
-              <Button
-                onClick={() => { setShowSettings(false); router.push('/admin') }}
-                variant="ghost"
-                style={{ width: '100%', padding: '10px', fontSize: '13px' }}
-              >
+              <Button onClick={() => { setShowSettings(false); router.push('/admin') }} variant="ghost" style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
                 ⚙️ Panel de administración
               </Button>
             </div>
@@ -421,28 +452,23 @@ export default function App() {
         <AnalysisProgressBar symbol={analysisProgress} done={analysisDone} />
       )}
 
-      {/* Toast */}
+      {/* Success Toast */}
       {showToast && (
         <div
           onClick={() => { setShowToast(false); setActiveTab('analyses') }}
-          style={{
-            position: 'fixed',
-            bottom: '90px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'var(--positive)',
-            color: '#000',
-            borderRadius: '20px',
-            padding: '10px 20px',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            zIndex: 999,
-            whiteSpace: 'nowrap',
-            animation: 'fadeIn 0.3s ease',
-          }}
+          style={{ position: 'fixed', bottom: '90px', left: '50%', transform: 'translateX(-50%)', background: 'var(--positive)', color: '#000', borderRadius: '20px', padding: '10px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', zIndex: 999, whiteSpace: 'nowrap', animation: 'fadeIn 0.3s ease' }}
         >
           ✅ Análisis de {toastSymbol} listo — ver ahora
+        </div>
+      )}
+
+      {/* Error Toast */}
+      {errorToast && (
+        <div
+          onClick={() => setErrorToast(null)}
+          style={{ position: 'fixed', bottom: '90px', left: '50%', transform: 'translateX(-50%)', background: 'var(--negative)', color: '#fff', borderRadius: '20px', padding: '10px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', zIndex: 999, whiteSpace: 'nowrap', maxWidth: '90%', textAlign: 'center', animation: 'fadeIn 0.3s ease' }}
+        >
+          ❌ {errorToast}
         </div>
       )}
 
@@ -472,7 +498,6 @@ export default function App() {
               onEdit={editAlert}
               onAnalyze={analyzeManually}
               analyzingSymbol={analyzingSymbol}
-              analyses={analyses}
             />
           </div>
         )}
