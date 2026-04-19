@@ -294,7 +294,7 @@ export default function App() {
   )
 
   const SettingsModal = () => (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display<div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overscrollBehavior: 'none', touchAction: 'none' }} onClick={() => setShowSettings(false)}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overscrollBehavior: 'none', touchAction: 'none' }} onClick={() => setShowSettings(false)}>
       <div style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px', width: '100%', maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Configuración</h3>
