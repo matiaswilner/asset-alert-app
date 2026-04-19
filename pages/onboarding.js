@@ -114,11 +114,9 @@ export default function Onboarding() {
   }
 
   const canGoNext = () => {
-    if (step === 1) return watchlistAdded
     if (step === 2) return notifStatus === 'active'
     return true
   }
-
   function nextStep() {
     if (step === STEPS.length - 1) {
       completeOnboarding()
@@ -221,6 +219,14 @@ export default function Onboarding() {
                 La IA va a monitorear este activo automáticamente.
               </p>
             </Card>
+          )}
+          {!watchlistAdded && (
+            <button
+              onClick={() => setStep(2)}
+              style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '12px', cursor: 'pointer', padding: '8px' }}
+            >
+              Saltar por ahora
+            </button>
           )}
         </div>
       )}
