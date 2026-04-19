@@ -160,8 +160,29 @@ export default function PriceChart({ symbol, assetType, analyses = [] }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
-        <p style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>Cargando gráfico...</p>
+      <div>
+        <style>{`
+          @keyframes shimmer {
+            0% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0.4; }
+          }
+        `}</style>
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ width: '140px', height: '32px', background: 'var(--bg-tertiary)', borderRadius: '8px', marginBottom: '8px', animation: 'shimmer 1.5s ease infinite' }} />
+          <div style={{ width: '100px', height: '16px', background: 'var(--bg-tertiary)', borderRadius: '6px', animation: 'shimmer 1.5s ease infinite 0.2s' }} />
+        </div>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+          {[...Array(9)].map((_, i) => (
+            <div key={i} style={{ width: '36px', height: '28px', background: 'var(--bg-tertiary)', borderRadius: '8px', animation: `shimmer 1.5s ease infinite ${i * 0.1}s` }} />
+          ))}
+        </div>
+        <div style={{ height: '200px', background: 'var(--bg-tertiary)', borderRadius: '12px', animation: 'shimmer 1.5s ease infinite' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} style={{ width: '70px', height: '32px', background: 'var(--bg-tertiary)', borderRadius: '8px', animation: `shimmer 1.5s ease infinite ${i * 0.15}s` }} />
+          ))}
+        </div>
       </div>
     )
   }
