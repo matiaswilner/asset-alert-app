@@ -11,6 +11,7 @@ import AnalysisList from '../components/analyses/AnalysisList'
 import NotificationList from '../components/notifications/NotificationList'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import AnalysisProgressBar from '../components/ui/ProgressBar'
 
 const fadeIn = `
   @keyframes fadeIn {
@@ -48,6 +49,10 @@ export default function App() {
   const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
+  const [analysisProgress, setAnalysisProgress] = useState(null)
+  const [analysisDone, setAnalysisDone] = useState(false)
+  const [showToast, setShowToast] = useState(false)
+  const [toastSymbol, setToastSymbol] = useState('')
 
   useEffect(() => {
     async function init() {
@@ -229,6 +234,8 @@ export default function App() {
 
   async function analyzeManually(alert) {
     setAnalyzingSymbol(alert.asset_symbol)
+    setAnalysisProgress(alert.asset_symbol)
+    setAnalysisDone(false)
     try {
       const timeframe = alert.condition.includes('day') ? '1 day' :
                         alert.condition.includes('week') ? '1 week' :
@@ -238,22 +245,38 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: alert.asset_symbol, assetType: alert.asset_type, priceChange: 'manual request', timeframe, alertId: alert.id, triggeredBy: 'manual', userId: user?.id }),
       })
+      setAnalysisDone(true)
       await fetchAnalyses()
-      setActiveTab('analyses')
+      setTimeout(() => {
+        setAnalysisProgress(null)
+        setAnalysisDone(false)
+        setToastSymbol(alert.asset_symbol)
+        setShowToast(true)
+        setTimeout(() => setShowToast(false), 4000)
+      }, 1000)
     } catch (err) { console.error(err) }
     setAnalyzingSymbol(null)
   }
 
   async function analyzeFromWatchlist(item) {
     setAnalyzingSymbol(item.asset_symbol)
+    setAnalysisProgress(item.asset_symbol)
+    setAnalysisDone(false)
     try {
       await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type, priceChange: 'manual request', timeframe: '1 day', alertId: null, triggeredBy: 'manual', userId: user?.id }),
       })
+      setAnalysisDone(true)
       await fetchAnalyses()
-      setActiveTab('analyses')
+      setTimeout(() => {
+        setAnalysisProgress(null)
+        setAnalysisDone(false)
+        setToastSymbol(item.asset_symbol)
+        setShowToast(true)
+        setTimeout(() => setShowToast(false), 4000)
+      }, 1000)
     } catch (err) { console.error(err) }
     setAnalyzingSymbol(null)
   }
@@ -372,6 +395,36 @@ export default function App() {
           ⚙️
         </button>
       </div>
+
+      {/* Analysis Progress Bar */}
+      {analysisProgress && (
+        <AnalysisProgressBar symbol={analysisProgress} done={analysisDone} />
+      )}
+
+      {/* Toast */}
+      {showToast && (
+        <div
+          onClick={() => { setShowToast(false); setActiveTab('analyses') }}
+          style={{
+            position: 'fixed',
+            bottom: '90px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--positive)',
+            color: '#000',
+            borderRadius: '20px',
+            padding: '10px 20px',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            zIndex: 999,
+            whiteSpace: 'nowrap',
+            animation: 'fadeIn 0.3s ease',
+          }}
+        >
+          ✅ Análisis de {toastSymbol} listo — ver ahora
+        </div>
+      )}
 
       {/* Content */}
       <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
