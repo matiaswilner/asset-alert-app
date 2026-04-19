@@ -151,6 +151,16 @@ export default function App() {
       threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
       user_id: user.id,
     }])
+
+    fetch('/api/init-price-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: form.asset_symbol.toUpperCase(),
+        assetType: form.asset_type,
+      }),
+    }).catch(err => console.error('init-price-history error:', err))
+
     setForm(EMPTY_FORM)
     setShowAlertForm(false)
     fetchAlerts()
