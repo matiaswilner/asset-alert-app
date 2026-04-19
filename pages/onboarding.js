@@ -48,6 +48,13 @@ export default function Onboarding() {
       const currentUser = await getCurrentUser()
       if (!currentUser) { router.replace('/login'); return }
       setUser(currentUser)
+
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .limit(1)
+      if (data && data.length > 0) setNotifStatus('active')
     }
     init()
   }, [])
