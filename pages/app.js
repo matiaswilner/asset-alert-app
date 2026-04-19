@@ -46,15 +46,13 @@ export default function App() {
   const [showAlertForm, setShowAlertForm] = useState(false)
   const [showWatchlistForm, setShowWatchlistForm] = useState(false)
   const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
 
   useEffect(() => {
     async function init() {
       const currentUser = await getCurrentUser()
-      if (!currentUser) {
-        router.replace('/login')
-        return
-      }
+      if (!currentUser) { router.replace('/login'); return }
       setUser(currentUser)
       const params = new URLSearchParams(window.location.search)
       const tab = params.get('tab') || 'alerts'
@@ -202,7 +200,19 @@ export default function App() {
       })
       setNotifStatus('active')
     } catch (err) {
-      setNotifStatus('error:' + err.message)
+      setNotifStatus('error')
+    }
+  }
+
+  async function sendTestNotification() {
+    try {
+      await fetch('/api/send-test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id }),
+      })
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -236,26 +246,6 @@ export default function App() {
     } catch (err) { console.error(err) }
     setAnalyzingSymbol(null)
   }
-
-  async function sendTestNotification() {
-    try {
-      await fetch('/api/send-test-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id }),
-      })
-    } catch (err) {
-      console.error(err)
-    }
-  }
-  
-  const notifConfig = {
-    idle: { label: '🔔 Activar notificaciones', bg: 'var(--accent)', color: '#fff' },
-    loading: { label: 'Activando...', bg: 'var(--bg-tertiary)', color: 'var(--text-secondary)' },
-    active: { label: '✅ Activas', bg: 'var(--positive-dim)', color: 'var(--positive)' },
-    denied: { label: '❌ Denegado', bg: 'var(--negative-dim)', color: 'var(--negative)' },
-  }
-  const nc = notifStatus.startsWith('error') ? { label: '⚠️ Error', bg: 'var(--warning-dim)', color: 'var(--warning)' } : (notifConfig[notifStatus] || notifConfig.idle)
 
   if (loading) {
     return (
@@ -292,6 +282,68 @@ export default function App() {
     </div>
   )
 
+  const SettingsModal = () => (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowSettings(false)}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px', width: '100%', maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Configuración</h3>
+          <button onClick={() => setShowSettings(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '16px' }}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cuenta</p>
+            <p style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: '500' }}>{user?.email}</p>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notificaciones</p>
+            {notifStatus === 'active' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--positive)' }}>✅ Notificaciones activas</p>
+                <Button onClick={sendTestNotification} variant="ghost" style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
+                  🔔 Probar notificación
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={activateNotifications}
+                disabled={notifStatus === 'loading'}
+                style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+              >
+                {notifStatus === 'loading' ? 'Activando...' : '🔔 Activar notificaciones'}
+              </Button>
+            )}
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ayuda</p>
+            <Button
+              onClick={() => { setShowSettings(false); router.push('/onboarding') }}
+              variant="ghost"
+              style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+            >
+              ❓ Ver tutorial de la app
+            </Button>
+          </div>
+
+          {user?.id === 'b0ac5859-b7bb-475d-85b0-dcea19dd6012' && (
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin</p>
+              <Button
+                onClick={() => { setShowSettings(false); router.push('/admin') }}
+                variant="ghost"
+                style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+              >
+                ⚙️ Panel de administración
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px', overflow: 'hidden' }}>
       <style>{fadeIn}</style>
@@ -299,51 +351,20 @@ export default function App() {
       {/* Header */}
       <div style={{ padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img
-            src="/icon-192.png"
-            alt="Assetic"
-            style={{ width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer' }}
-            onClick={() => {
-              if (user?.id === 'b0ac5859-b7bb-475d-85b0-dcea19dd6012') {
-                router.push('/admin')
-              }
-            }}
-          />
+          <img src="/icon-192.png" alt="Assetic" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
         </div>
         <button
-          onClick={() => router.push('/onboarding')}
-          style={{ background: 'var(--bg-secondary)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShowSettings(true)}
+          style={{ background: 'var(--bg-secondary)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          ?
+          ⚙️
         </button>
-        {notifStatus !== 'active' && (
-          <button
-            onClick={activateNotifications}
-            disabled={notifStatus === 'loading'}
-            style={{ background: nc.bg, color: nc.color, border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-          >
-            {nc.label}
-          </button>
-        )}
       </div>
-
-{/* Test notification button */}
-      {notifStatus === 'active' && (
-        <div style={{ padding: '8px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={sendTestNotification}
-            style={{ background: 'none', border: 'none', fontSize: '11px', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px 8px' }}
-          >
-            🔔 probar notificación
-          </button>
-        </div>
-      )}
 
       {/* Content */}
       <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
 
-        {/* Alerts Tab */}
         {activeTab === 'alerts' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -371,7 +392,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Watchlist Tab */}
         {activeTab === 'watchlist' && (
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -402,7 +422,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Analyses Tab */}
         {activeTab === 'analyses' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
@@ -412,7 +431,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Notifications Tab */}
         {activeTab === 'notifications' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
@@ -440,6 +458,7 @@ export default function App() {
       </div>
 
       {showSmartAlertInfo && <SmartAlertModal />}
+      {showSettings && <SettingsModal />}
     </div>
   )
 }
