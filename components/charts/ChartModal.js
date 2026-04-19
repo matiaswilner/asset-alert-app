@@ -38,7 +38,7 @@ export default function ChartModal({ item, analyses, onClose }) {
         <PriceChart
           symbol={item.asset_symbol}
           assetType={item.asset_type}
-          analyses={analyses.filter(a => a.asset_symbol === item.asset_symbol)}
+          analyses={(analyses || []).filter(a => a.asset_symbol === item.asset_symbol)}
         />
       </div>
     </div>
