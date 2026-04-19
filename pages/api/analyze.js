@@ -2,6 +2,7 @@ import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { callSonnet } from '../../lib/ai'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
 import { getPrice } from '../../lib/prices'
+import { logError } from '../../lib/logger'
 
 async function fetchMarketauxNews(symbol) {
   try {
@@ -11,7 +12,10 @@ async function fetchMarketauxNews(symbol) {
     const data = await response.json()
     if (!data.data || data.data.length === 0) return []
     return data.data.slice(0, 4).map(a => `[Marketaux] ${a.title}: ${a.description || ''}`)
-  } catch { return [] }
+  } catch (err) {
+    await logError({ source: 'analyze:marketaux', category: 'external_api', message: err.message })
+    return []
+  }
 }
 
 async function fetchFinnhubNews(symbol) {
@@ -24,7 +28,10 @@ async function fetchFinnhubNews(symbol) {
     const data = await response.json()
     if (!Array.isArray(data) || data.length === 0) return []
     return data.slice(0, 4).map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
-  } catch { return [] }
+  } catch (err) {
+    await logError({ source: 'analyze:finnhub', category: 'external_api', message: err.message })
+    return []
+  }
 }
 
 async function fetchNews(symbol) {
@@ -54,13 +61,19 @@ export default async function handler(req, res) {
     let resolvedPreviousPrice = previousPrice
 
     if (triggeredBy === 'manual' || !currentPrice) {
-      const price = await getPrice(symbol, assetType || 'stock')
-      resolvedCurrentPrice = price.currentPrice.toFixed(2)
-      resolvedPreviousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
-      resolvedPriceChange = `${price.changeDay.toFixed(2)}% en el día`
+      try {
+        const price = await getPrice(symbol, assetType || 'stock')
+        resolvedCurrentPrice = price.currentPrice.toFixed(2)
+        resolvedPreviousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
+        resolvedPriceChange = `${price.changeDay.toFixed(2)}% en el día`
+      } catch (err) {
+        await logError({ source: 'analyze:getPrice', category: 'external_api', message: err.message, details: { symbol } })
+        return res.status(500).json({ error: err.message })
+      }
     }
 
     const newsData = await fetchNews(symbol)
+
     const prompt = buildAnalysisPrompt({
       symbol,
       priceChange: resolvedPriceChange,
@@ -69,7 +82,14 @@ export default async function handler(req, res) {
       currentPrice: resolvedCurrentPrice,
       previousPrice: resolvedPreviousPrice,
     })
-    const analysis = await callSonnet(prompt)
+
+    let analysis
+    try {
+      analysis = await callSonnet(prompt)
+    } catch (err) {
+      await logError({ source: 'analyze:claude', category: 'external_api', message: err.message, details: { symbol } })
+      return res.status(500).json({ error: err.message })
+    }
 
     const { data, error } = await supabase
       .from('alert_analyses')
@@ -91,10 +111,14 @@ export default async function handler(req, res) {
       .select()
       .single()
 
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      await logError({ source: 'analyze:insertAnalysis', category: 'database', message: error.message })
+      return res.status(500).json({ error: error.message })
+    }
+
     return res.status(200).json({ analysis: data })
   } catch (err) {
-    console.error('Analyze error:', err.message, err.stack)
+    await logError({ source: 'analyze', category: 'internal', message: err.message })
     return res.status(500).json({ error: err.message })
   }
 }
