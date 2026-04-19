@@ -85,12 +85,21 @@ export default function App() {
 
   async function fetchAll() {
     try {
-      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices()])
+      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices(), fetchNotifStatus()])
     } catch (err) {
       console.error('fetchAll error:', err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function fetchNotifStatus() {
+    const { data } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', user?.id)
+      .limit(1)
+    if (data && data.length > 0) setNotifStatus('active')
   }
 
   async function fetchAlerts() {
