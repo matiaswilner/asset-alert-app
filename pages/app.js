@@ -492,6 +492,7 @@ export default function App() {
               onRemove={removeFromWatchlist}
               onAnalyze={analyzeFromWatchlist}
               analyzingSymbol={analyzingSymbol}
+              analyses={analyses}
             />
           </div>
         )}
