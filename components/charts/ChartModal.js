@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import PriceChart from './PriceChart'
 
 export default function ChartModal({ item, analyses, onClose }) {
