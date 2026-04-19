@@ -1,7 +1,7 @@
 import WatchlistCard from './WatchlistCard'
 import EmptyState from '../ui/EmptyState'
 
-export default function WatchlistList({ watchlist, prices, onToggle, onRemove, onAnalyze, analyzingSymbol }) {
+export default function WatchlistList({ watchlist, prices, onToggle, onRemove, onAnalyze, analyzingSymbol, analyses }) {
   if (watchlist.length === 0) {
     return (
       <EmptyState
@@ -23,6 +23,7 @@ export default function WatchlistList({ watchlist, prices, onToggle, onRemove, o
           onRemove={onRemove}
           onAnalyze={onAnalyze}
           analyzingSymbol={analyzingSymbol}
+          analyses={analyses}
         />
       ))}
     </div>
