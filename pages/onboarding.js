@@ -117,6 +117,7 @@ export default function Onboarding() {
   async function sendTestNotification() {
     if (!watchlistAdded || testSent) return
     setTestSent(true)
+
     await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -127,6 +128,16 @@ export default function Onboarding() {
         timeframe: '1 day',
         triggeredBy: 'manual',
         userId: user?.id,
+      }),
+    })
+
+    await fetch('/api/send-test-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user?.id,
+        title: '🧠 Tu primer análisis está listo',
+        body: `El análisis de ${watchlistForm.asset_symbol.toUpperCase()} ya está disponible en la tab de Análisis.`,
       }),
     })
   }
