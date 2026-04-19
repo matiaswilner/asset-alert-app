@@ -8,11 +8,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const { data: watchlistItems } = await supabase
-    .from('watchlist')
-    .select('asset_symbol, asset_type')
+  const [{ data: watchlistItems }, { data: alertItems }] = await Promise.all([
+    supabase.from('watchlist').select('asset_symbol, asset_type'),
+    supabase.from('alerts').select('asset_symbol, asset_type'),
+  ])
 
-  const unique = [...new Map(watchlistItems.map(i => [i.asset_symbol, i])).values()]
+  const allItems = [...(watchlistItems || []), ...(alertItems || [])]
+  const unique = [...new Map(allItems.map(i => [i.asset_symbol, i])).values()]
 
   const spyExists = unique.find(i => i.asset_symbol === 'SPY')
   if (!spyExists) unique.push({ asset_symbol: 'SPY', asset_type: 'etf' })
