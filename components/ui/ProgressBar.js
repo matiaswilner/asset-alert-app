@@ -11,7 +11,7 @@ export default function AnalysisProgressBar({ symbol, done }) {
 
   useEffect(() => {
     setActiveStep(0)
-    const timer = setTimeout(() => setActiveStep(1), 8000)
+    const timer = setTimeout(() => setActiveStep(1), 6000)
     return () => clearTimeout(timer)
   }, [symbol])
 
