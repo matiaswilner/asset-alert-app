@@ -1,27 +1,18 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrice } from '../../lib/prices'
 import { sendPushNotification } from '../../lib/ai'
+import { logError } from '../../lib/logger'
 
 async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertId, currentPrice, previousPrice, userId) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asset-alert-app-red.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
     await fetch(`${baseUrl}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol,
-        assetType,
-        priceChange,
-        timeframe,
-        currentPrice,
-        previousPrice,
-        alertId,
-        triggeredBy: 'automatic',
-        userId,
-      }),
+      body: JSON.stringify({ symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy: 'automatic', userId }),
     })
   } catch (err) {
-    console.error('Analysis failed:', err.message)
+    await logError({ source: 'check-alerts:triggerAnalysis', category: 'internal', message: err.message })
   }
 }
 
@@ -51,7 +42,11 @@ export default async function handler(req, res) {
     .select('*')
     .eq('is_active', true)
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) {
+    await logError({ source: 'check-alerts', category: 'database', message: error.message })
+    return res.status(500).json({ error: error.message })
+  }
+
   if (!alerts.length) return res.status(200).json({ message: 'No active alerts' })
 
   const results = []
@@ -71,7 +66,14 @@ export default async function handler(req, res) {
         }
       }
 
-      const price = await getPrice(alert.asset_symbol, alert.asset_type)
+      let price
+      try {
+        price = await getPrice(alert.asset_symbol, alert.asset_type)
+      } catch (err) {
+        await logError({ source: 'check-alerts:getPrice', category: 'external_api', message: err.message, details: { symbol: alert.asset_symbol } })
+        results.push({ symbol: alert.asset_symbol, status: 'error', message: err.message })
+        continue
+      }
 
       let triggered = false
       let actualChange = 0
@@ -117,16 +119,13 @@ export default async function handler(req, res) {
           triggeredBy: 'automatic',
           userId: alert.user_id,
         })
-        await supabase
-          .from('alerts')
-          .update({ last_triggered_at: new Date().toISOString() })
-          .eq('id', alert.id)
-
+        await supabase.from('alerts').update({ last_triggered_at: new Date().toISOString() }).eq('id', alert.id)
         results.push({ symbol: alert.asset_symbol, status: 'triggered', change: actualChange.toFixed(2) + '%' })
       } else {
         results.push({ symbol: alert.asset_symbol, status: 'ok', change: actualChange ? actualChange.toFixed(2) + '%' : 'above min' })
       }
     } catch (err) {
+      await logError({ source: 'check-alerts', category: 'internal', message: err.message, details: { symbol: alert.asset_symbol } })
       results.push({ symbol: alert.asset_symbol, status: 'error', message: err.message })
     }
   }
