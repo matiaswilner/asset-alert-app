@@ -89,6 +89,17 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (showSettings || showSmartAlertInfo) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showSettings, showSmartAlertInfo])
+
   async function fetchAll() {
     try {
       await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices()])
