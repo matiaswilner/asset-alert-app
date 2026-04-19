@@ -41,6 +41,8 @@ export default function Onboarding() {
   const [addingWatchlist, setAddingWatchlist] = useState(false)
   const [notifStatus, setNotifStatus] = useState('idle')
   const [testSent, setTestSent] = useState(false)
+  const [progressStep, setProgressStep] = useState(0)
+  const [progressLabel, setProgressLabel] = useState('📨 Análisis en camino...')
   const [tourIndex, setTourIndex] = useState(0)
 
   useEffect(() => {
@@ -58,6 +60,24 @@ export default function Onboarding() {
     }
     init()
   }, [])
+
+  useEffect(() => {
+    if (!testSent) return
+    const labels = ['🔍 Buscando noticias...', '🧠 Analizando el mercado...', '✅ Casi listo...']
+    let step = 0
+    setProgressStep(0)
+    setProgressLabel(labels[0])
+    const interval = setInterval(() => {
+      step += 1
+      if (step >= labels.length) {
+        clearInterval(interval)
+        return
+      }
+      setProgressStep(step)
+      setProgressLabel(labels[step])
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [testSent])
 
   async function addToWatchlist() {
     if (!watchlistForm.asset_symbol || !user) return
@@ -266,14 +286,36 @@ export default function Onboarding() {
                 </p>
               </Card>
               {watchlistAdded && (
-                <Button
-                  onClick={sendTestNotification}
-                  disabled={testSent}
-                  variant="ghost"
-                  style={{ width: '100%', padding: '14px', fontSize: '14px' }}
-                >
-                  {testSent ? '📨 Análisis en camino...' : '🧪 Probar — analizar ' + watchlistForm.asset_symbol.toUpperCase()}
-                </Button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <Button
+                    onClick={sendTestNotification}
+                    disabled={testSent}
+                    variant="ghost"
+                    style={{ width: '100%', padding: '14px', fontSize: '14px' }}
+                  >
+                    {testSent ? progressLabel : '🧪 Probar — analizar ' + watchlistForm.asset_symbol.toUpperCase()}
+                  </Button>
+                  {testSent && (
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                        {['🔍', '🧠', '✅'].map((icon, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: i < 2 ? 1 : 'none' }}>
+                            <span style={{ fontSize: '14px', opacity: progressStep >= i ? 1 : 0.3, transition: 'opacity 0.4s ease' }}>{icon}</span>
+                            <span style={{ fontSize: '11px', color: progressStep >= i ? 'var(--text-primary)' : 'var(--text-tertiary)', transition: 'color 0.4s ease' }}>
+                              {['Noticias', 'Análisis', 'Listo'][i]}
+                            </span>
+                            {i < 2 && (
+                              <div style={{ flex: 1, height: '2px', background: progressStep > i ? 'var(--accent)' : 'var(--border)', margin: '0 6px', borderRadius: '999px', transition: 'background 0.4s ease' }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>
+                        Esto puede tardar unos segundos. Podés continuar con el tutorial mientras esperás — te va a llegar una notificación cuando esté listo.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
