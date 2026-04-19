@@ -1,6 +1,11 @@
 import PriceChart from './PriceChart'
 
 export default function ChartModal({ item, analyses, onClose }) {
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+  
   return (
     <div
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overscrollBehavior: 'none', touchAction: 'none' }}
