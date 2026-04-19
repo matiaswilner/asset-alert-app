@@ -182,6 +182,16 @@ export default function App() {
       asset_type: watchlistForm.asset_type,
       user_id: user.id,
     }])
+
+    fetch('/api/init-price-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: watchlistForm.asset_symbol.toUpperCase(),
+        assetType: watchlistForm.asset_type,
+      }),
+    }).catch(err => console.error('init-price-history error:', err))
+
     setWatchlistForm(EMPTY_WATCHLIST_FORM)
     setShowWatchlistForm(false)
     fetchWatchlist()
