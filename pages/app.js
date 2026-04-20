@@ -466,7 +466,7 @@ export default function App() {
       {errorToast && (
         <div
           onClick={() => setErrorToast(null)}
-          style={{ position: 'fixed', bottom: '90px', left: '50%', transform: 'translateX(-50%)', background: 'var(--negative)', color: '#fff', borderRadius: '20px', padding: '10px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', zIndex: 999, whiteSpace: 'nowrap', maxWidth: '90%', textAlign: 'center', animation: 'fadeIn 0.3s ease' }}
+          style={{ position: 'fixed', bottom: '90px', left: '50%', transform: 'translateX(-50%)', background: 'var(--negative)', color: '#fff', borderRadius: '20px', padding: '10px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', zIndex: 999, width: '85%', textAlign: 'center', animation: 'fadeIn 0.3s ease' }}
         >
           ❌ {errorToast}
         </div>
