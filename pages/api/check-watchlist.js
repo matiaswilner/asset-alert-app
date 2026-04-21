@@ -1,5 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { getPrice } from '../../lib/prices'
+import { getPrices } from '../../lib/prices'
 import { buildSmartAlertEvalPrompt } from '../../lib/prompts/smartAlert'
 import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
 import { callHaiku, callSonnet, sendPushNotification } from '../../lib/ai'
@@ -14,7 +14,7 @@ async function fetchMarketauxNews(symbol) {
     if (!data.data || data.data.length === 0) return []
     return data.data.slice(0, 3).map(a => `[Marketaux] ${a.title}: ${a.description || ''}`)
   } catch (err) {
-    await logError({ source: 'check-watchlist:marketaux', category: 'external_api', message: err.message })
+    await logError({ source: 'check-watchlist.js:fetchMarketauxNews', category: 'external_api', message: err.message, details: { symbol } })
     return []
   }
 }
@@ -30,7 +30,7 @@ async function fetchFinnhubNews(symbol) {
     if (!Array.isArray(data) || data.length === 0) return []
     return data.slice(0, 3).map(a => `[Finnhub] ${a.headline}: ${a.summary || ''}`)
   } catch (err) {
-    await logError({ source: 'check-watchlist:finnhub', category: 'external_api', message: err.message })
+    await logError({ source: 'check-watchlist.js:fetchFinnhubNews', category: 'external_api', message: err.message, details: { symbol } })
     return []
   }
 }
@@ -41,8 +41,7 @@ async function fetchNews(symbol) {
     fetchFinnhubNews(symbol),
   ])
   const combined = [...marketauxNews, ...finnhubNews]
-  if (combined.length === 0) return 'No recent news found.'
-  return combined.map(n => `- ${n}`).join('\n')
+  return combined.length === 0 ? 'No recent news found.' : combined.map(n => `- ${n}`).join('\n')
 }
 
 export default async function handler(req, res) {
@@ -56,25 +55,37 @@ export default async function handler(req, res) {
     .eq('is_active', true)
 
   if (error) {
-    await logError({ source: 'check-watchlist', category: 'database', message: error.message })
+    await logError({ source: 'check-watchlist.js:fetchWatchlist', category: 'database', message: error.message })
     return res.status(500).json({ error: error.message })
   }
 
   if (!watchlist.length) return res.status(200).json({ message: 'No active watchlist items' })
 
+  // Obtener símbolos únicos para batch
+  const uniqueSymbols = [...new Map(
+    watchlist.map(i => [i.asset_symbol, { symbol: i.asset_symbol, assetType: i.asset_type }])
+  ).values()]
+
+  // Fetch de precios en batch
+  let prices = {}
+  try {
+    prices = await getPrices(uniqueSymbols)
+  } catch (err) {
+    await logError({ source: 'check-watchlist.js:getPrices', category: 'external_api', message: err.message })
+    return res.status(500).json({ error: err.message })
+  }
+
   const results = []
 
   for (const item of watchlist) {
-    try {
-      let price
-      try {
-        price = await getPrice(item.asset_symbol, item.asset_type)
-      } catch (err) {
-        await logError({ source: 'check-watchlist:getPrice', category: 'external_api', message: err.message, details: { symbol: item.asset_symbol } })
-        results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
-        continue
-      }
+    const price = prices[item.asset_symbol]
 
+    if (!price || price.error) {
+      results.push({ symbol: item.asset_symbol, status: 'error', message: price?.error || 'Price not available' })
+      continue
+    }
+
+    try {
       const newsData = await fetchNews(item.asset_symbol)
 
       const evalPrompt = buildSmartAlertEvalPrompt({
@@ -90,7 +101,7 @@ export default async function handler(req, res) {
       try {
         evaluation = await callHaiku(evalPrompt)
       } catch (err) {
-        await logError({ source: 'check-watchlist:haiku', category: 'external_api', message: err.message })
+        await logError({ source: 'check-watchlist.js:callHaiku', category: 'external_api', message: err.message, details: { symbol: item.asset_symbol } })
         results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
         continue
       }
@@ -114,7 +125,7 @@ export default async function handler(req, res) {
       try {
         analysis = await callSonnet(analysisPrompt)
       } catch (err) {
-        await logError({ source: 'check-watchlist:sonnet', category: 'external_api', message: err.message })
+        await logError({ source: 'check-watchlist.js:callSonnet', category: 'external_api', message: err.message, details: { symbol: item.asset_symbol } })
         results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
         continue
       }
@@ -136,7 +147,7 @@ export default async function handler(req, res) {
       }])
 
       if (insertError) {
-        await logError({ source: 'check-watchlist:insertAnalysis', category: 'database', message: insertError.message })
+        await logError({ source: 'check-watchlist.js:insertAnalysis', category: 'database', message: insertError.message, details: { symbol: item.asset_symbol } })
       }
 
       await sendPushNotification({
@@ -149,7 +160,7 @@ export default async function handler(req, res) {
 
       results.push({ symbol: item.asset_symbol, status: 'notified', reason: evaluation.reason })
     } catch (err) {
-      await logError({ source: 'check-watchlist', category: 'internal', message: err.message, details: { symbol: item.asset_symbol } })
+      await logError({ source: 'check-watchlist.js:processItem', category: 'internal', message: err.message, details: { symbol: item.asset_symbol } })
       results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
     }
   }
