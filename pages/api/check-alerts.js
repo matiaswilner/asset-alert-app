@@ -1,5 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { getPrice } from '../../lib/prices'
+import { getPrice, getPrices } from '../../lib/prices'
 import { sendPushNotification } from '../../lib/ai'
 import { logError } from '../../lib/logger'
 
@@ -12,7 +12,7 @@ async function triggerAnalysis(symbol, assetType, priceChange, timeframe, alertI
       body: JSON.stringify({ symbol, assetType, priceChange, timeframe, currentPrice, previousPrice, alertId, triggeredBy: 'automatic', userId }),
     })
   } catch (err) {
-    await logError({ source: 'check-alerts:triggerAnalysis', category: 'internal', message: err.message })
+    await logError({ source: 'check-alerts.js:triggerAnalysis', category: 'internal', message: err.message, details: { symbol, alertId } })
   }
 }
 
@@ -43,38 +43,52 @@ export default async function handler(req, res) {
     .eq('is_active', true)
 
   if (error) {
-    await logError({ source: 'check-alerts', category: 'database', message: error.message })
+    await logError({ source: 'check-alerts.js:fetchAlerts', category: 'database', message: error.message })
     return res.status(500).json({ error: error.message })
   }
 
   if (!alerts.length) return res.status(200).json({ message: 'No active alerts' })
 
+  // Filtrar alertas que ya se dispararon hoy
+  const today = new Date()
+  const pendingAlerts = alerts.filter(alert => {
+    if (!alert.last_triggered_at) return true
+    const lastTriggered = new Date(alert.last_triggered_at)
+    return !(
+      lastTriggered.getDate() === today.getDate() &&
+      lastTriggered.getMonth() === today.getMonth() &&
+      lastTriggered.getFullYear() === today.getFullYear()
+    )
+  })
+
+  const skipped = alerts.length - pendingAlerts.length
+
+  // Obtener símbolos únicos para batch
+  const uniqueSymbols = [...new Map(
+    pendingAlerts.map(a => [a.asset_symbol, { symbol: a.asset_symbol, assetType: a.asset_type }])
+  ).values()]
+
+  // Fetch de precios en batch
+  let prices = {}
+  try {
+    prices = await getPrices(uniqueSymbols)
+  } catch (err) {
+    await logError({ source: 'check-alerts.js:getPrices', category: 'external_api', message: err.message })
+    return res.status(500).json({ error: err.message })
+  }
+
   const results = []
+  if (skipped > 0) results.push({ status: 'skipped_today', count: skipped })
 
-  for (const alert of alerts) {
+  for (const alert of pendingAlerts) {
+    const price = prices[alert.asset_symbol]
+
+    if (!price || price.error) {
+      results.push({ symbol: alert.asset_symbol, status: 'error', message: price?.error || 'Price not available' })
+      continue
+    }
+
     try {
-      if (alert.last_triggered_at) {
-        const lastTriggered = new Date(alert.last_triggered_at)
-        const today = new Date()
-        const isSameDay =
-          lastTriggered.getDate() === today.getDate() &&
-          lastTriggered.getMonth() === today.getMonth() &&
-          lastTriggered.getFullYear() === today.getFullYear()
-        if (isSameDay) {
-          results.push({ symbol: alert.asset_symbol, status: 'skipped - already triggered today' })
-          continue
-        }
-      }
-
-      let price
-      try {
-        price = await getPrice(alert.asset_symbol, alert.asset_type)
-      } catch (err) {
-        await logError({ source: 'check-alerts:getPrice', category: 'external_api', message: err.message, details: { symbol: alert.asset_symbol } })
-        results.push({ symbol: alert.asset_symbol, status: 'error', message: err.message })
-        continue
-      }
-
       let triggered = false
       let actualChange = 0
       let notifBody = ''
@@ -125,7 +139,7 @@ export default async function handler(req, res) {
         results.push({ symbol: alert.asset_symbol, status: 'ok', change: actualChange ? actualChange.toFixed(2) + '%' : 'above min' })
       }
     } catch (err) {
-      await logError({ source: 'check-alerts', category: 'internal', message: err.message, details: { symbol: alert.asset_symbol } })
+      await logError({ source: 'check-alerts.js:processAlert', category: 'internal', message: err.message, details: { symbol: alert.asset_symbol, alertId: alert.id } })
       results.push({ symbol: alert.asset_symbol, status: 'error', message: err.message })
     }
   }
