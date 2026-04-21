@@ -1,9 +1,12 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrices } from '../../lib/prices'
 import { buildSmartAlertEvalPrompt } from '../../lib/prompts/smartAlert'
-import { buildAnalysisPrompt, ANALYSIS_PROMPT_VERSION } from '../../lib/prompts/analysis'
-import { callHaiku, callSonnet, sendPushNotification } from '../../lib/ai'
+import { callHaiku } from '../../lib/ai'
 import { logError } from '../../lib/logger'
+
+export const config = {
+  maxDuration: 60,
+}
 
 async function fetchMarketauxNews(symbol) {
   try {
@@ -76,6 +79,7 @@ export default async function handler(req, res) {
   }
 
   const results = []
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
 
   for (const item of watchlist) {
     const price = prices[item.asset_symbol]
@@ -101,7 +105,12 @@ export default async function handler(req, res) {
       try {
         evaluation = await callHaiku(evalPrompt)
       } catch (err) {
-        await logError({ source: 'check-watchlist.js:callHaiku', category: 'external_api', message: err.message, details: { symbol: item.asset_symbol } })
+        await logError({
+          source: 'check-watchlist.js:callHaiku',
+          category: 'external_api',
+          message: err.message,
+          details: { symbol: item.asset_symbol },
+        })
         results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
         continue
       }
@@ -111,56 +120,41 @@ export default async function handler(req, res) {
         continue
       }
 
+      // Fire and forget — disparamos el análisis sin esperar
       const previousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
-      const analysisPrompt = buildAnalysisPrompt({
-        symbol: item.asset_symbol,
-        priceChange: `${price.changeDay.toFixed(2)}%`,
-        timeframe: '1 day',
-        newsData,
-        currentPrice: price.currentPrice.toFixed(2),
-        previousPrice,
+
+      fetch(`${baseUrl}/api/analyze-watchlist-item`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+        },
+        body: JSON.stringify({
+          symbol: item.asset_symbol,
+          assetType: item.asset_type,
+          currentPrice: price.currentPrice.toFixed(2),
+          previousPrice,
+          changeDay: price.changeDay.toFixed(2),
+          newsData,
+          userId: item.user_id,
+        }),
+      }).catch(async err => {
+        await logError({
+          source: 'check-watchlist.js:fireAndForget',
+          category: 'internal',
+          message: err.message,
+          details: { symbol: item.asset_symbol },
+        })
       })
 
-      let analysis
-      try {
-        analysis = await callSonnet(analysisPrompt)
-      } catch (err) {
-        await logError({ source: 'check-watchlist.js:callSonnet', category: 'external_api', message: err.message, details: { symbol: item.asset_symbol } })
-        results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
-        continue
-      }
-
-      const { error: insertError } = await supabase.from('alert_analyses').insert([{
-        alert_id: null,
-        asset_symbol: item.asset_symbol,
-        movement_type: analysis.context,
-        summary: analysis.summary,
-        explanation: analysis.explanation,
-        context: analysis.context,
-        interpretation: analysis.interpretation,
-        recommendation: analysis.recommendation,
-        score: analysis.score,
-        confidence: analysis.confidence,
-        triggered_by: 'smart_alert',
-        prompt_version: ANALYSIS_PROMPT_VERSION,
-        user_id: item.user_id,
-      }])
-
-      if (insertError) {
-        await logError({ source: 'check-watchlist.js:insertAnalysis', category: 'database', message: insertError.message, details: { symbol: item.asset_symbol } })
-      }
-
-      await sendPushNotification({
-        title: '🧠 Smart Alert',
-        body: `${item.asset_symbol}: ${analysis.recommendation} — ${analysis.summary}`,
-        assetSymbol: item.asset_symbol,
-        triggeredBy: 'smart_alert',
-        userId: item.user_id,
-      })
-
-      results.push({ symbol: item.asset_symbol, status: 'notified', reason: evaluation.reason })
+      results.push({ symbol: item.asset_symbol, status: 'analysis_dispatched' })
     } catch (err) {
-      await logError({ source: 'check-watchlist.js:processItem', category: 'internal', message: err.message, details: { symbol: item.asset_symbol } })
+      await logError({
+        source: 'check-watchlist.js:processItem',
+        category: 'internal',
+        message: err.message,
+        details: { symbol: item.asset_symbol },
+      })
       results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
     }
   }
