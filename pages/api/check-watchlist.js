@@ -1,7 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 import { getPrices } from '../../lib/prices'
-import { buildSmartAlertEvalPrompt } from '../../lib/prompts/smartAlert'
-import { callHaiku } from '../../lib/ai'
 import { logError } from '../../lib/logger'
 
 export const config = {
@@ -78,8 +76,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message })
   }
 
-  const results = []
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  const results = []
 
   for (const item of watchlist) {
     const price = prices[item.asset_symbol]
@@ -91,38 +89,27 @@ export default async function handler(req, res) {
 
     try {
       const newsData = await fetchNews(item.asset_symbol)
-
-      const evalPrompt = buildSmartAlertEvalPrompt({
-        symbol: item.asset_symbol,
-        assetType: item.asset_type,
-        changeDay: price.changeDay.toFixed(2),
-        changeWeek: price.changeWeek.toFixed(2),
-        currentPrice: price.currentPrice.toFixed(2),
-        newsData,
-      })
-
-      let evaluation
-      try {
-        evaluation = await callHaiku(evalPrompt)
-      } catch (err) {
-        await logError({
-          source: 'check-watchlist.js:callHaiku',
-          category: 'external_api',
-          message: err.message,
-          details: { symbol: item.asset_symbol },
-        })
-        results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
-        continue
-      }
-
-      if (!evaluation.should_notify) {
-        results.push({ symbol: item.asset_symbol, status: 'skipped', reason: evaluation.reason })
-        continue
-      }
-
-      // Fire and forget — disparamos el análisis sin esperar
       const previousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
 
+      // Guardar en queue
+      const { error: queueError } = await supabase.from('watchlist_eval_queue').insert([{
+        asset_symbol: item.asset_symbol,
+        asset_type: item.asset_type,
+        current_price: price.currentPrice,
+        previous_price: previousPrice,
+        change_day: price.changeDay,
+        news_data: newsData,
+        user_id: item.user_id,
+        processed: false,
+      }])
+
+      if (queueError) {
+        await logError({ source: 'check-watchlist.js:insertQueue', category: 'database', message: queueError.message, details: { symbol: item.asset_symbol } })
+        results.push({ symbol: item.asset_symbol, status: 'error', message: queueError.message })
+        continue
+      }
+
+      // Fire and forget — dispara analyze-watchlist-item sin esperar
       fetch(`${baseUrl}/api/analyze-watchlist-item`, {
         method: 'POST',
         headers: {
@@ -147,17 +134,18 @@ export default async function handler(req, res) {
         })
       })
 
-      results.push({ symbol: item.asset_symbol, status: 'analysis_dispatched' })
+      results.push({ symbol: item.asset_symbol, status: 'dispatched' })
     } catch (err) {
-      await logError({
-        source: 'check-watchlist.js:processItem',
-        category: 'internal',
-        message: err.message,
-        details: { symbol: item.asset_symbol },
-      })
+      await logError({ source: 'check-watchlist.js:processItem', category: 'internal', message: err.message, details: { symbol: item.asset_symbol } })
       results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
     }
   }
+
+  // Limpiar queue de más de 24 horas
+  await supabase
+    .from('watchlist_eval_queue')
+    .delete()
+    .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
   return res.status(200).json({ results })
 }
