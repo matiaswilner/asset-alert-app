@@ -61,7 +61,7 @@ export default async function handler(req, res) {
 
   if (!watchlist.length) return res.status(200).json({ message: 'No active watchlist items' })
 
-  // Leer precios desde asset_prices (ya fetcheados por fetch-all-prices)
+  // Leer precios desde asset_prices
   const symbols = [...new Set(watchlist.map(i => i.asset_symbol))]
   const { data: priceRows, error: pricesError } = await supabase
     .from('asset_prices')
@@ -80,6 +80,7 @@ export default async function handler(req, res) {
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
   const results = []
+  let dispatchIndex = 0
 
   for (const item of watchlist) {
     const priceRow = prices[item.asset_symbol]
@@ -96,33 +97,38 @@ export default async function handler(req, res) {
 
       const newsData = await fetchNews(item.asset_symbol)
 
-      // Fire and forget — dispara analyze-watchlist-item sin esperar
-      fetch(`${baseUrl}/api/analyze-watchlist-item`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-        },
-        body: JSON.stringify({
-          symbol: item.asset_symbol,
-          assetType: item.asset_type,
-          currentPrice,
-          previousPrice,
-          changeDay,
-          changeWeek: parseFloat(priceRow.change_week).toFixed(2),
-          newsData,
-          userId: item.user_id,
-        }),
-      }).catch(async err => {
-        await logError({
-          source: 'check-watchlist.js:fireAndForget',
-          category: 'internal',
-          message: err.message,
-          details: { symbol: item.asset_symbol },
-        })
-      })
+      // Delay escalonado de 3 segundos entre cada request para no saturar Claude
+      const delay = dispatchIndex * 3000
+      dispatchIndex++
 
-      results.push({ symbol: item.asset_symbol, status: 'dispatched' })
+      setTimeout(() => {
+        fetch(`${baseUrl}/api/analyze-watchlist-item`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+          },
+          body: JSON.stringify({
+            symbol: item.asset_symbol,
+            assetType: item.asset_type,
+            currentPrice,
+            previousPrice,
+            changeDay,
+            changeWeek: parseFloat(priceRow.change_week).toFixed(2),
+            newsData,
+            userId: item.user_id,
+          }),
+        }).catch(async err => {
+          await logError({
+            source: 'check-watchlist.js:fireAndForget',
+            category: 'internal',
+            message: err.message,
+            details: { symbol: item.asset_symbol },
+          })
+        })
+      }, delay)
+
+      results.push({ symbol: item.asset_symbol, status: 'dispatched', delay_ms: delay })
     } catch (err) {
       await logError({ source: 'check-watchlist.js:processItem', category: 'internal', message: err.message, details: { symbol: item.asset_symbol } })
       results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
