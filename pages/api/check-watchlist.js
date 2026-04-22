@@ -1,5 +1,4 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { getPrices } from '../../lib/prices'
 import { logError } from '../../lib/logger'
 
 export const config = {
@@ -62,52 +61,40 @@ export default async function handler(req, res) {
 
   if (!watchlist.length) return res.status(200).json({ message: 'No active watchlist items' })
 
-  // Obtener símbolos únicos para batch
-  const uniqueSymbols = [...new Map(
-    watchlist.map(i => [i.asset_symbol, { symbol: i.asset_symbol, assetType: i.asset_type }])
-  ).values()]
+  // Leer precios desde asset_prices (ya fetcheados por fetch-all-prices)
+  const symbols = [...new Set(watchlist.map(i => i.asset_symbol))]
+  const { data: priceRows, error: pricesError } = await supabase
+    .from('asset_prices')
+    .select('*')
+    .in('asset_symbol', symbols)
 
-  // Fetch de precios en batch
-  let prices = {}
-  try {
-    prices = await getPrices(uniqueSymbols)
-  } catch (err) {
-    await logError({ source: 'check-watchlist.js:getPrices', category: 'external_api', message: err.message })
-    return res.status(500).json({ error: err.message })
+  if (pricesError) {
+    await logError({ source: 'check-watchlist.js:fetchPrices', category: 'database', message: pricesError.message })
+    return res.status(500).json({ error: pricesError.message })
+  }
+
+  const prices = {}
+  for (const row of priceRows || []) {
+    prices[row.asset_symbol] = row
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
   const results = []
 
   for (const item of watchlist) {
-    const price = prices[item.asset_symbol]
+    const priceRow = prices[item.asset_symbol]
 
-    if (!price || price.error) {
-      results.push({ symbol: item.asset_symbol, status: 'error', message: price?.error || 'Price not available' })
+    if (!priceRow) {
+      results.push({ symbol: item.asset_symbol, status: 'error', message: 'No price data available — run fetch-all-prices first' })
       continue
     }
 
     try {
+      const currentPrice = parseFloat(priceRow.current_price).toFixed(2)
+      const changeDay = parseFloat(priceRow.change_day).toFixed(2)
+      const previousPrice = (parseFloat(priceRow.current_price) / (1 + parseFloat(priceRow.change_day) / 100)).toFixed(2)
+
       const newsData = await fetchNews(item.asset_symbol)
-      const previousPrice = (price.currentPrice / (1 + price.changeDay / 100)).toFixed(2)
-
-      // Guardar en queue
-      const { error: queueError } = await supabase.from('watchlist_eval_queue').insert([{
-        asset_symbol: item.asset_symbol,
-        asset_type: item.asset_type,
-        current_price: price.currentPrice,
-        previous_price: previousPrice,
-        change_day: price.changeDay,
-        news_data: newsData,
-        user_id: item.user_id,
-        processed: false,
-      }])
-
-      if (queueError) {
-        await logError({ source: 'check-watchlist.js:insertQueue', category: 'database', message: queueError.message, details: { symbol: item.asset_symbol } })
-        results.push({ symbol: item.asset_symbol, status: 'error', message: queueError.message })
-        continue
-      }
 
       // Fire and forget — dispara analyze-watchlist-item sin esperar
       fetch(`${baseUrl}/api/analyze-watchlist-item`, {
@@ -119,9 +106,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           symbol: item.asset_symbol,
           assetType: item.asset_type,
-          currentPrice: price.currentPrice.toFixed(2),
+          currentPrice,
           previousPrice,
-          changeDay: price.changeDay.toFixed(2),
+          changeDay,
+          changeWeek: parseFloat(priceRow.change_week).toFixed(2),
           newsData,
           userId: item.user_id,
         }),
@@ -140,12 +128,6 @@ export default async function handler(req, res) {
       results.push({ symbol: item.asset_symbol, status: 'error', message: err.message })
     }
   }
-
-  // Limpiar queue de más de 24 horas
-  await supabase
-    .from('watchlist_eval_queue')
-    .delete()
-    .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
   return res.status(200).json({ results })
 }
