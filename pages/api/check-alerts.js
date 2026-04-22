@@ -1,5 +1,4 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { getPrice, getPrices } from '../../lib/prices'
 import { sendPushNotification } from '../../lib/ai'
 import { logError } from '../../lib/logger'
 
@@ -61,71 +60,112 @@ export default async function handler(req, res) {
     )
   })
 
-  const skipped = alerts.length - pendingAlerts.length
+  if (!pendingAlerts.length) return res.status(200).json({ message: 'All alerts already triggered today' })
 
-  // Obtener símbolos únicos para batch
-  const uniqueSymbols = [...new Map(
-    pendingAlerts.map(a => [a.asset_symbol, { symbol: a.asset_symbol, assetType: a.asset_type }])
-  ).values()]
+  // Leer precios desde asset_prices (ya fetcheados por fetch-all-prices)
+  const symbols = [...new Set(pendingAlerts.map(a => a.asset_symbol))]
+  const { data: priceRows, error: pricesError } = await supabase
+    .from('asset_prices')
+    .select('*')
+    .in('asset_symbol', symbols)
 
-  // Fetch de precios en batch
-  let prices = {}
-  try {
-    prices = await getPrices(uniqueSymbols)
-  } catch (err) {
-    await logError({ source: 'check-alerts.js:getPrices', category: 'external_api', message: err.message })
-    return res.status(500).json({ error: err.message })
+  if (pricesError) {
+    await logError({ source: 'check-alerts.js:fetchPrices', category: 'database', message: pricesError.message })
+    return res.status(500).json({ error: pricesError.message })
+  }
+
+  const prices = {}
+  for (const row of priceRows || []) {
+    prices[row.asset_symbol] = row
+  }
+
+  // Para alertas de mínimos históricos necesitamos los datos completos de price_history
+  const minAlerts = pendingAlerts.filter(a => Object.keys(MIN_PERIOD_MAP).includes(a.condition))
+  const minPrices = {}
+
+  if (minAlerts.length > 0) {
+    const minSymbols = [...new Set(minAlerts.map(a => a.asset_symbol))]
+    const fromDate = new Date()
+    fromDate.setDate(fromDate.getDate() - 181)
+
+    for (const symbol of minSymbols) {
+      const { data: history } = await supabase
+        .from('price_history')
+        .select('date, low_price')
+        .eq('asset_symbol', symbol)
+        .gte('date', fromDate.toISOString().split('T')[0])
+        .order('date', { ascending: false })
+
+      if (history && history.length > 0) {
+        const getMin = (days) => Math.min(...history.slice(0, days).map(r => parseFloat(r.low_price)).filter(v => !isNaN(v)))
+        minPrices[symbol] = {
+          min14d: getMin(14),
+          min30d: getMin(30),
+          min60d: getMin(60),
+          min90d: getMin(90),
+          min180d: getMin(180),
+        }
+      }
+    }
   }
 
   const results = []
-  if (skipped > 0) results.push({ status: 'skipped_today', count: skipped })
 
   for (const alert of pendingAlerts) {
-    const price = prices[alert.asset_symbol]
+    const priceRow = prices[alert.asset_symbol]
 
-    if (!price || price.error) {
-      results.push({ symbol: alert.asset_symbol, status: 'error', message: price?.error || 'Price not available' })
+    if (!priceRow) {
+      results.push({ symbol: alert.asset_symbol, status: 'error', message: 'No price data available — run fetch-all-prices first' })
       continue
     }
 
     try {
+      const currentPrice = parseFloat(priceRow.current_price)
+      const changeDay = parseFloat(priceRow.change_day)
+      const changeWeek = parseFloat(priceRow.change_week)
+      const previousPrice = (currentPrice / (1 + changeDay / 100)).toFixed(2)
+
       let triggered = false
       let actualChange = 0
       let notifBody = ''
       let timeframe = ''
 
       if (alert.condition === 'drop_day') {
-        actualChange = price.changeDay
-        triggered = price.changeDay <= -alert.threshold_percent
+        actualChange = changeDay
+        triggered = changeDay <= -alert.threshold_percent
         notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% hoy — hay un análisis disponible`
         timeframe = '1 day'
       } else if (alert.condition === 'drop_week') {
-        actualChange = price.changeWeek
-        triggered = price.changeWeek <= -alert.threshold_percent
+        actualChange = changeWeek
+        triggered = changeWeek <= -alert.threshold_percent
         notifBody = `${alert.asset_symbol} cayó ${Math.abs(actualChange).toFixed(2)}% esta semana — hay un análisis disponible`
         timeframe = '1 week'
       } else if (alert.condition === 'rise_day') {
-        actualChange = price.changeDay
-        triggered = price.changeDay >= alert.threshold_percent
+        actualChange = changeDay
+        triggered = changeDay >= alert.threshold_percent
         notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% hoy — hay un análisis disponible`
         timeframe = '1 day'
       } else if (alert.condition === 'rise_week') {
-        actualChange = price.changeWeek
-        triggered = price.changeWeek >= alert.threshold_percent
+        actualChange = changeWeek
+        triggered = changeWeek >= alert.threshold_percent
         notifBody = `${alert.asset_symbol} subió ${actualChange.toFixed(2)}% esta semana — hay un análisis disponible`
         timeframe = '1 week'
       } else if (MIN_PERIOD_MAP[alert.condition]) {
         const period = MIN_PERIOD_MAP[alert.condition]
-        const minPrice = MIN_PRICE_MAP[alert.condition](price)
-        triggered = price.currentPrice <= minPrice
+        const minData = minPrices[alert.asset_symbol]
+        if (!minData) {
+          results.push({ symbol: alert.asset_symbol, status: 'error', message: 'No price history data for min calculation' })
+          continue
+        }
+        const minPrice = MIN_PRICE_MAP[alert.condition](minData)
+        triggered = currentPrice <= minPrice
         notifBody = `${alert.asset_symbol} tocó su mínimo de los últimos ${period.label} — hay un análisis disponible`
         timeframe = `${period.days} days`
-        actualChange = price.changeDay
+        actualChange = changeDay
       }
 
       if (triggered) {
-        const yesterdayPrice = (price.currentPrice / (1 + actualChange / 100)).toFixed(2)
-        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, price.currentPrice, yesterdayPrice, alert.user_id)
+        await triggerAnalysis(alert.asset_symbol, alert.asset_type, `${actualChange.toFixed(2)}%`, timeframe, alert.id, currentPrice, previousPrice, alert.user_id)
         await sendPushNotification({
           title: '⚠️ Alerta de precio',
           body: notifBody,
