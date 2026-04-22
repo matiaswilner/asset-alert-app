@@ -95,7 +95,7 @@ export default function Admin() {
     : logs.filter(l => l.category === categoryFilter)
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '24px', paddingBottom: '48px' }}>
+    <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', padding: '24px', paddingBottom: '48px', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
         <button
           onClick={() => router.push('/app')}
@@ -217,10 +217,10 @@ export default function Admin() {
                     {new Date(log.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px' }}>{log.source}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>{log.message}</p>
+                <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px', wordBreak: 'break-word' }}>{log.source}</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: '1.5', wordBreak: 'break-word' }}>{log.message}</p>
                 {log.details && (
-                  <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', fontFamily: 'monospace' }}>
+                  <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                     {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
                   </p>
                 )}
