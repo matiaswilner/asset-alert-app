@@ -21,6 +21,9 @@ const PERIODS = [
   { id: '6M', label: '6M', days: 180 },
   { id: '1A', label: '1A', days: 365 },
   { id: '2A', label: '2A', days: 730 },
+  { id: '3A', label: '3A', days: 1095 },
+  { id: '5A', label: '5A', days: 1825 },
+  { id: '10A', label: '10A', days: 3650 },
 ]
 
 const CHART_TYPES = [
