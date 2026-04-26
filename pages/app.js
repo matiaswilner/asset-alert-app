@@ -6,9 +6,9 @@ import AlertList from '../components/alerts/AlertList'
 import AlertForm from '../components/alerts/AlertForm'
 import { MIN_CONDITIONS } from '../components/alerts/AlertForm'
 import WatchlistList from '../components/watchlist/WatchlistList'
-import WatchlistForm from '../components/watchlist/WatchlistForm'
 import AnalysisList from '../components/analyses/AnalysisList'
 import NotificationList from '../components/notifications/NotificationList'
+import AssetSearch from '../components/ui/AssetSearch'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import AnalysisProgressBar from '../components/ui/ProgressBar'
@@ -20,8 +20,7 @@ const fadeIn = `
   }
 `
 
-const EMPTY_FORM = { asset_symbol: '', asset_type: 'stock', condition: 'drop_day', threshold_percent: '' }
-const EMPTY_WATCHLIST_FORM = { asset_symbol: '', asset_type: 'etf' }
+const EMPTY_ALERT_FORM = { asset_symbol: '', asset_type: 'stock', condition: 'drop_day', threshold_percent: '' }
 
 const tabs = [
   { id: 'alerts', label: 'Alertas', icon: '🔔' },
@@ -38,22 +37,25 @@ export default function App() {
   const [watchlist, setWatchlist] = useState([])
   const [prices, setPrices] = useState({})
   const [notifications, setNotifications] = useState([])
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [watchlistForm, setWatchlistForm] = useState(EMPTY_WATCHLIST_FORM)
   const [loading, setLoading] = useState(true)
   const [notifStatus, setNotifStatus] = useState('idle')
   const [analyzingSymbol, setAnalyzingSymbol] = useState(null)
   const [activeTab, setActiveTab] = useState('alerts')
-  const [showAlertForm, setShowAlertForm] = useState(false)
-  const [showWatchlistForm, setShowWatchlistForm] = useState(false)
-  const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [expandedNotificationId, setExpandedNotificationId] = useState(null)
   const [analysisProgress, setAnalysisProgress] = useState(null)
   const [analysisDone, setAnalysisDone] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [toastSymbol, setToastSymbol] = useState('')
   const [errorToast, setErrorToast] = useState(null)
+  const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Watchlist flow
+  const [showWatchlistSearch, setShowWatchlistSearch] = useState(false)
+
+  // Alert flow — step 1: search, step 2: condition form
+  const [alertStep, setAlertStep] = useState(null) // null | 'search' | 'form'
+  const [alertForm, setAlertForm] = useState(EMPTY_ALERT_FORM)
 
   function showError(message) {
     setErrorToast(message)
@@ -154,26 +156,78 @@ export default function App() {
     setPrices(map)
   }
 
-  async function createAlert() {
-    if (!form.asset_symbol || !user) return
-    if (!MIN_CONDITIONS.includes(form.condition) && !form.threshold_percent) return
+  // Watchlist handlers
+  async function handleWatchlistSelect(asset) {
+    if (!user) return
     try {
-      const { error } = await supabase.from('alerts').insert([{
-        ...form,
-        asset_symbol: form.asset_symbol.toUpperCase(),
-        threshold_percent: form.threshold_percent ? parseFloat(form.threshold_percent) : null,
+      const { error } = await supabase.from('watchlist').insert([{
+        asset_symbol: asset.asset_symbol,
+        asset_type: asset.asset_type,
         user_id: user.id,
       }])
       if (error) throw new Error(error.message)
       fetch('/api/init-price-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: form.asset_symbol.toUpperCase(), assetType: form.asset_type }),
+        body: JSON.stringify({ symbol: asset.asset_symbol, assetType: asset.asset_type }),
       }).catch(() => {})
-      setForm(EMPTY_FORM)
-      setShowAlertForm(false)
+      setShowWatchlistSearch(false)
+      fetchWatchlist()
+    } catch {
+      showError('Error al agregar a la watchlist. El activo puede ya estar agregado.')
+    }
+  }
+
+  async function removeFromWatchlist(id) {
+    try {
+      const { error } = await supabase.from('watchlist').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchWatchlist()
+    } catch {
+      showError('Error al quitar el activo.')
+    }
+  }
+
+  async function toggleWatchlistItem(id, current) {
+    try {
+      const { error } = await supabase.from('watchlist').update({ is_active: !current }).eq('id', id)
+      if (error) throw new Error(error.message)
+      fetchWatchlist()
+    } catch {
+      showError('Error al actualizar el activo.')
+    }
+  }
+
+  // Alert handlers
+  function handleAlertAssetSelect(asset) {
+    setAlertForm({
+      asset_symbol: asset.asset_symbol,
+      asset_type: asset.asset_type,
+      condition: 'drop_day',
+      threshold_percent: '',
+    })
+    setAlertStep('form')
+  }
+
+  async function createAlert() {
+    if (!alertForm.asset_symbol || !user) return
+    if (!MIN_CONDITIONS.includes(alertForm.condition) && !alertForm.threshold_percent) return
+    try {
+      const { error } = await supabase.from('alerts').insert([{
+        ...alertForm,
+        threshold_percent: alertForm.threshold_percent ? parseFloat(alertForm.threshold_percent) : null,
+        user_id: user.id,
+      }])
+      if (error) throw new Error(error.message)
+      fetch('/api/init-price-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: alertForm.asset_symbol, assetType: alertForm.asset_type }),
+      }).catch(() => {})
+      setAlertStep(null)
+      setAlertForm(EMPTY_ALERT_FORM)
       fetchAlerts()
-    } catch (err) {
+    } catch {
       showError('Error al crear la alerta. Intentá de nuevo.')
     }
   }
@@ -202,55 +256,12 @@ export default function App() {
     try {
       const { error } = await supabase.from('alerts').update({
         ...editForm,
-        asset_symbol: editForm.asset_symbol.toUpperCase(),
         threshold_percent: editForm.threshold_percent ? parseFloat(editForm.threshold_percent) : null,
       }).eq('id', id)
       if (error) throw new Error(error.message)
       fetchAlerts()
     } catch {
       showError('Error al guardar los cambios.')
-    }
-  }
-
-  async function addToWatchlist() {
-    if (!watchlistForm.asset_symbol || !user) return
-    try {
-      const { error } = await supabase.from('watchlist').insert([{
-        asset_symbol: watchlistForm.asset_symbol.toUpperCase(),
-        asset_type: watchlistForm.asset_type,
-        user_id: user.id,
-      }])
-      if (error) throw new Error(error.message)
-      fetch('/api/init-price-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: watchlistForm.asset_symbol.toUpperCase(), assetType: watchlistForm.asset_type }),
-      }).catch(() => {})
-      setWatchlistForm(EMPTY_WATCHLIST_FORM)
-      setShowWatchlistForm(false)
-      fetchWatchlist()
-    } catch {
-      showError('Error al agregar a la watchlist. El activo puede ya estar agregado.')
-    }
-  }
-
-  async function removeFromWatchlist(id) {
-    try {
-      const { error } = await supabase.from('watchlist').delete().eq('id', id)
-      if (error) throw new Error(error.message)
-      fetchWatchlist()
-    } catch {
-      showError('Error al quitar el activo.')
-    }
-  }
-
-  async function toggleWatchlistItem(id, current) {
-    try {
-      const { error } = await supabase.from('watchlist').update({ is_active: !current }).eq('id', id)
-      if (error) throw new Error(error.message)
-      fetchWatchlist()
-    } catch {
-      showError('Error al actualizar el activo.')
     }
   }
 
@@ -482,15 +493,48 @@ export default function App() {
                 <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Alertas</h2>
                 <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Alertas manuales por condición de precio</p>
               </div>
-              <Button onClick={() => setShowAlertForm(!showAlertForm)} variant="purple">
-                {showAlertForm ? '✕ Cerrar' : '+ Nueva'}
-              </Button>
+              {alertStep === null && (
+                <Button onClick={() => setAlertStep('search')} variant="purple">
+                  + Nueva
+                </Button>
+              )}
             </div>
-            {showAlertForm && (
+
+            {alertStep === 'search' && (
               <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
-                <AlertForm form={form} setForm={setForm} onSubmit={createAlert} onCancel={() => setShowAlertForm(false)} />
+                <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                  Paso 1 — Elegí el activo
+                </p>
+                <AssetSearch
+                  onSelect={handleAlertAssetSelect}
+                  onCancel={() => setAlertStep(null)}
+                />
               </Card>
             )}
+
+            {alertStep === 'form' && (
+              <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <button
+                    onClick={() => setAlertStep('search')}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', padding: 0 }}
+                  >
+                    ←
+                  </button>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    Paso 2 — Configurá la condición para <span style={{ color: 'var(--accent)' }}>{alertForm.asset_symbol}</span>
+                  </p>
+                </div>
+                <AlertForm
+                  form={alertForm}
+                  setForm={setAlertForm}
+                  onSubmit={createAlert}
+                  onCancel={() => { setAlertStep(null); setAlertForm(EMPTY_ALERT_FORM) }}
+                  lockAsset
+                />
+              </Card>
+            )}
+
             <AlertList
               alerts={alerts}
               onToggle={toggleAlert}
@@ -512,15 +556,22 @@ export default function App() {
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Monitoreo inteligente con Smart Alerts</p>
               </div>
-              <Button onClick={() => setShowWatchlistForm(!showWatchlistForm)} variant="purple">
-                {showWatchlistForm ? '✕ Cerrar' : '+ Agregar'}
-              </Button>
+              {!showWatchlistSearch && (
+                <Button onClick={() => setShowWatchlistSearch(true)} variant="purple">
+                  + Agregar
+                </Button>
+              )}
             </div>
-            {showWatchlistForm && (
+
+            {showWatchlistSearch && (
               <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
-                <WatchlistForm form={watchlistForm} setForm={setWatchlistForm} onSubmit={addToWatchlist} onCancel={() => setShowWatchlistForm(false)} />
+                <AssetSearch
+                  onSelect={handleWatchlistSelect}
+                  onCancel={() => setShowWatchlistSearch(false)}
+                />
               </Card>
             )}
+
             <WatchlistList
               watchlist={watchlist}
               prices={prices}
