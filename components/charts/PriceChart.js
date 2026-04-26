@@ -77,6 +77,7 @@ export default function PriceChart({ symbol, assetType, analyses }) {
       .eq('asset_symbol', symbol)
       .gte('date', fromStr)
       .order('date', { ascending: true })
+      .limit(4000)
 
     if (!isSPY) {
       const { data: spyRows } = await supabase
