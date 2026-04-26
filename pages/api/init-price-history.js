@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       .select('*', { count: 'exact', head: true })
       .eq('asset_symbol', symbol)
 
-    if (count > 0) {
+    if (count > 0 && !req.body.force) {
       return res.status(200).json({ message: `${symbol} already has history`, count })
     }
 
