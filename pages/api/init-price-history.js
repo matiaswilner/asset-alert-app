@@ -3,9 +3,9 @@ import { supabaseServer as supabase } from '../../lib/supabaseServer'
 async function fetchYahooHistory(symbol, assetType) {
   const yahooSymbol = assetType === 'crypto' ? `${symbol}-USD` : symbol
   const now = Math.floor(Date.now() / 1000)
-  const twoYearsAgo = now - (2 * 365 * 24 * 60 * 60)
+  const tenYearsAgo = now - (10 * 365 * 24 * 60 * 60)
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?period1=${twoYearsAgo}&period2=${now}&interval=1d`
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?period1=${tenYearsAgo}&period2=${now}&interval=1d`
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' }
