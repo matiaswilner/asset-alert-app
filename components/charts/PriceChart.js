@@ -86,6 +86,7 @@ export default function PriceChart({ symbol, assetType, analyses }) {
         .eq('asset_symbol', 'SPY')
         .gte('date', fromStr)
         .order('date', { ascending: true })
+        .limit(4000)
       setSpyData(spyRows || [])
     }
 
