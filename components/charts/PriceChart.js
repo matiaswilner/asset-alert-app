@@ -33,6 +33,18 @@ const CHART_TYPES = [
   { id: 'buy', label: 'Compra' },
 ]
 
+function getSampleInterval(days) {
+  if (days >= 3650) return 5  // 10A → 1 punto cada 5 días (~500 puntos)
+  if (days >= 1825) return 3  // 5A → 1 punto cada 3 días (~600 puntos)
+  if (days >= 1095) return 2  // 3A → 1 punto cada 2 días (~550 puntos)
+  return 1
+}
+
+function sampleData(data, interval) {
+  if (interval === 1) return data
+  return data.filter((_, i) => i % interval === 0 || i === data.length - 1)
+}
+
 function formatDate(dateStr, days) {
   const date = new Date(dateStr)
   if (days <= 90) return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
@@ -70,6 +82,7 @@ export default function PriceChart({ symbol, assetType, analyses }) {
     const fromDate = new Date()
     fromDate.setDate(fromDate.getDate() - period.days)
     const fromStr = fromDate.toISOString().split('T')[0]
+    const sampleInterval = getSampleInterval(period.days)
 
     const { data: rows } = await supabase
       .from('price_history')
@@ -87,10 +100,10 @@ export default function PriceChart({ symbol, assetType, analyses }) {
         .gte('date', fromStr)
         .order('date', { ascending: true })
         .limit(4000)
-      setSpyData(spyRows || [])
+      setSpyData(sampleData(spyRows || [], sampleInterval))
     }
 
-    const prices = rows || []
+    const prices = sampleData(rows || [], sampleInterval)
     setData(prices)
 
     if (prices.length > 0) {
@@ -181,8 +194,8 @@ export default function PriceChart({ symbol, assetType, analyses }) {
           <div style={{ width: '100px', height: '16px', background: 'var(--bg-tertiary)', borderRadius: '6px', animation: 'shimmer 1.5s ease infinite 0.2s' }} />
         </div>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
-          {[...Array(9)].map((_, i) => (
-            <div key={i} style={{ width: '36px', height: '28px', background: 'var(--bg-tertiary)', borderRadius: '8px', animation: `shimmer 1.5s ease infinite ${i * 0.1}s` }} />
+          {[...Array(12)].map((_, i) => (
+            <div key={i} style={{ width: '32px', height: '28px', background: 'var(--bg-tertiary)', borderRadius: '8px', animation: `shimmer 1.5s ease infinite ${i * 0.1}s` }} />
           ))}
         </div>
         <div style={{ height: '200px', background: 'var(--bg-tertiary)', borderRadius: '12px', animation: 'shimmer 1.5s ease infinite' }} />
