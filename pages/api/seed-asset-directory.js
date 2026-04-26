@@ -1,6 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
 
-// S&P 500 principales + stocks populares
 const STOCKS = [
   { symbol: 'AAPL', name: 'Apple Inc.' },
   { symbol: 'MSFT', name: 'Microsoft Corporation' },
@@ -132,9 +131,7 @@ const STOCKS = [
   { symbol: 'LI', name: 'Li Auto Inc.' },
   { symbol: 'PINS', name: 'Pinterest Inc.' },
   { symbol: 'SNAP', name: 'Snap Inc.' },
-  { symbol: 'TWTR', name: 'X Corp.' },
   { symbol: 'LYFT', name: 'Lyft Inc.' },
-  { symbol: 'DASH', name: 'DoorDash Inc.' },
   { symbol: 'ABNB', name: 'Airbnb Inc.' },
   { symbol: 'SQ', name: 'Block Inc.' },
   { symbol: 'PYPL', name: 'PayPal Holdings Inc.' },
@@ -344,7 +341,7 @@ export default async function handler(req, res) {
 
   const { error } = await supabase
     .from('asset_directory')
-    .upsert(rows, { onConflict: 'asset_symbol' })
+    .upsert(rows, { onConflict: 'asset_symbol,asset_type' })
 
   if (error) return res.status(500).json({ error: error.message })
 
