@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       const res2 = await fetch(`${baseUrl}/api/init-price-history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type }),
+        body: JSON.stringify({ symbol: item.asset_symbol, assetType: item.asset_type, force: true }),
       })
       const data = await res2.json()
       results.push({ symbol: item.asset_symbol, ...data })
