@@ -656,6 +656,7 @@ export default function App() {
             syncResult={syncResult}
             onToggleUploader={() => { setShowUploader(!showUploader); setSyncResult(null) }}
             onSync={syncPortfolio}
+            userId={user?.id}
           />
         )}
 
