@@ -3,6 +3,9 @@ import { supabase } from '../../../lib/supabaseClient'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts'
 
 const PERIODS = [
+  { id: '1M', label: '1M', days: 30 },
+  { id: '3M', label: '3M', days: 90 },
+  { id: '6M', label: '6M', days: 180 },
   { id: '1A', label: '1A', days: 365 },
   { id: '2A', label: '2A', days: 730 },
   { id: '5A', label: '5A', days: 1825 },
