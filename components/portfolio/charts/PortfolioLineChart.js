@@ -66,7 +66,7 @@ export default function PortfolioLineChart({ userId }) {
   }) || []
 
   // Gráfica de valor absoluto del portfolio
-  const valueData = data?.portfolioHistory?.map(row => ({
+  const valueData = data?.portfolioValueHistory?.map(row => ({
     date: row.date,
     portfolioValue: row.value,
   })) || []
