@@ -32,7 +32,6 @@ export default async function handler(req, res) {
     }
 
     const symbols = positions.map(p => p.asset_symbol)
-    const totalPositionsValue = positions.reduce((sum, p) => sum + parseFloat(p.market_value || 0), 0)
 
     // 2 — Obtener price_history para todas las posiciones
     const { data: priceHistory, error: priceError } = await supabase
@@ -79,10 +78,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6 — Calcular retorno del portfolio por día
-    // Usamos pesos actuales × retorno de precio de cada activo desde el inicio del período
+    // 6 — Calcular retorno y valor del portfolio por día
+    // Usamos lastKnownPrice para evitar saltos cuando faltan datos para un activo
     const portfolioHistory = []
     const portfolioValueHistory = []
+    const lastKnownPrice = {}
 
     for (const date of allDates) {
       let weightedReturn = 0
@@ -94,9 +94,14 @@ export default async function handler(req, res) {
         const weight = parseFloat(pos.weight_pct) / 100
         const qty = parseFloat(pos.quantity)
         const firstPrice = firstPrices[symbol]
-        const currentPrice = priceMap[date]?.[symbol]
+
+        // Usar precio del día o último precio conocido si no hay dato para esa fecha
+        const currentPrice = priceMap[date]?.[symbol] || lastKnownPrice[symbol]
 
         if (!firstPrice || !currentPrice) continue
+
+        // Actualizar último precio conocido si hay dato nuevo
+        if (priceMap[date]?.[symbol]) lastKnownPrice[symbol] = priceMap[date][symbol]
 
         const priceReturn = currentPrice / firstPrice
         weightedReturn += weight * priceReturn
@@ -106,7 +111,6 @@ export default async function handler(req, res) {
 
       if (totalWeight === 0) continue
 
-      // Normalizar el retorno ponderado a base 100
       const normalized = parseFloat(((weightedReturn / totalWeight) * 100).toFixed(2))
 
       portfolioHistory.push({ date, normalized })
