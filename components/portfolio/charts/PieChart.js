@@ -36,13 +36,13 @@ export default function PortfolioPieChart({ data, colors, title }) {
       {title && (
         <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px' }}>{title}</p>
       )}
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
-            cy="45%"
-            outerRadius={90}
+            cy="42%"
+            outerRadius={85}
             dataKey="weight"
             labelLine={false}
             label={renderCustomLabel}
