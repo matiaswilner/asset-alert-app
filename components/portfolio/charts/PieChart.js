@@ -36,25 +36,31 @@ export default function PortfolioPieChart({ data, colors, title }) {
       {title && (
         <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px' }}>{title}</p>
       )}
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={260}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
-            cy="50%"
+            cy="45%"
             outerRadius={90}
             dataKey="weight"
             labelLine={false}
             label={renderCustomLabel}
+            style={{ outline: 'none' }}
           >
             {data.map((entry, index) => (
-              <Cell key={entry.name} fill={colors[entry.name] || colors[index % Object.keys(colors).length] || '#6b7280'} />
+              <Cell
+                key={entry.name}
+                fill={colors[entry.name] || '#6b7280'}
+                style={{ outline: 'none', cursor: 'default' }}
+              />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
           <Legend
             formatter={(value) => <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{value}</span>}
             iconSize={8}
+            wrapperStyle={{ paddingTop: '8px' }}
           />
         </PieChart>
       </ResponsiveContainer>
