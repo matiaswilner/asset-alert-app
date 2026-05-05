@@ -37,13 +37,15 @@ export default async function handler(req, res) {
   ])
 
   const lastSync = syncLog?.[0] || null
-  const totalValue = positions?.reduce((sum, p) => sum + (parseFloat(p.market_value) || 0), 0) || 0
+  const positionsValue = positions?.reduce((sum, p) => sum + (parseFloat(p.market_value) || 0), 0) || 0
   const cashBalance = snapshots?.[0]?.cash_balance || 0
+  const totalValue = positionsValue + cashBalance
 
   return res.status(200).json({
     positions: positions || [],
     snapshots: snapshots || [],
     totalValue,
+    positionsValue,
     cashBalance,
     lastSync,
   })
