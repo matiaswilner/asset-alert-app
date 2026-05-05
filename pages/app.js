@@ -88,7 +88,7 @@ export default function App() {
         .limit(1)
       if (data && data.length > 0) setNotifStatus('active')
 
-      await fetchAll()
+      await fetchAll(currentUser)
     }
     init()
   }, [])
@@ -127,9 +127,9 @@ export default function App() {
     }
   }, [showSettings, showSmartAlertInfo])
 
-  async function fetchAll() {
+  async function fetchAll(currentUser) {
     try {
-      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices(), fetchPortfolio()])
+      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices(), fetchPortfolioForUser(currentUser)])
     } catch (err) {
       console.error('fetchAll error:', err.message)
     } finally {
@@ -169,6 +169,19 @@ export default function App() {
     setPortfolioLoading(true)
     try {
       const res = await fetch(`/api/get-portfolio?userId=${user.id}`)
+      const data = await res.json()
+      setPortfolio(data)
+    } catch (err) {
+      console.error('fetchPortfolio error:', err)
+    }
+    setPortfolioLoading(false)
+  }
+
+  async function fetchPortfolioForUser(currentUser) {
+    if (!currentUser || !isV4Enabled(currentUser.id)) return
+    setPortfolioLoading(true)
+    try {
+      const res = await fetch(`/api/get-portfolio?userId=${currentUser.id}`)
       const data = await res.json()
       setPortfolio(data)
     } catch (err) {
