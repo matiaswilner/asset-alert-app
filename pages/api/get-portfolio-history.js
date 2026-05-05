@@ -25,23 +25,52 @@ export default async function handler(req, res) {
     fromDate.setDate(fromDate.getDate() - days)
     const fromStr = fromDate.toISOString().split('T')[0]
 
-    // 1 — Obtener todos los trades del usuario
+    // 1 — Obtener todos los trades ordenados por fecha
     const { data: trades, error: tradesError } = await supabase
       .from('portfolio_trades')
-      .select('asset_symbol, trade_date, buy_sell, quantity')
+      .select('asset_symbol, trade_date, buy_sell, quantity, price')
       .eq('user_id', userId)
-      .eq('buy_sell', 'BUY')
       .order('trade_date', { ascending: true })
 
     if (tradesError) throw new Error(tradesError.message)
     if (!trades || trades.length === 0) {
-      return res.status(200).json({ portfolioHistory: [], benchmarkHistory: [] })
+      return res.status(200).json({ portfolioHistory: [], benchmarkHistory: [], portfolioReturn: 0, benchmarkReturn: 0 })
     }
 
-    // 2 — Obtener símbolos únicos del portfolio
+    // 2 — Obtener cash y posiciones actuales
+    const { data: positions } = await supabase
+      .from('portfolio_positions')
+      .select('asset_symbol, market_value, quantity')
+      .eq('user_id', userId)
+
+    const { data: snapshots } = await supabase
+      .from('portfolio_snapshots')
+      .select('cash_balance')
+      .eq('user_id', userId)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+
+    const currentCash = parseFloat(snapshots?.[0]?.cash_balance || 0)
+
+    // 3 — Reconstruir cash histórico
+    // El cash actual = cash inicial + depósitos - compras
+    // Aproximamos restando las compras al cash actual en orden inverso
+    const buyTrades = trades.filter(t => t.buy_sell === 'BUY').sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+    const cashByDate = {}
+    let rollingCash = currentCash
+    const allTradeDates = [...new Set(buyTrades.map(t => t.trade_date))].sort((a, b) => b.localeCompare(a))
+
+    for (const date of allTradeDates) {
+      const tradesOnDate = buyTrades.filter(t => t.trade_date === date)
+      const spent = tradesOnDate.reduce((sum, t) => sum + parseFloat(t.quantity) * parseFloat(t.price), 0)
+      cashByDate[date] = rollingCash
+      rollingCash += spent // antes de esa compra tenías más cash
+    }
+
+    // 4 — Obtener símbolos únicos
     const symbols = [...new Set(trades.map(t => t.asset_symbol))]
 
-    // 3 — Obtener price_history para todos los símbolos del período
+    // 5 — Obtener price_history para todos los símbolos
     const { data: priceHistory, error: priceError } = await supabase
       .from('price_history')
       .select('asset_symbol, date, close_price')
@@ -52,7 +81,7 @@ export default async function handler(req, res) {
 
     if (priceError) throw new Error(priceError.message)
 
-    // 4 — Obtener price_history del benchmark
+    // 6 — Obtener price_history del benchmark
     const { data: benchmarkHistory, error: benchmarkError } = await supabase
       .from('price_history')
       .select('date, close_price')
@@ -63,77 +92,115 @@ export default async function handler(req, res) {
 
     if (benchmarkError) throw new Error(benchmarkError.message)
 
-    // 5 — Construir mapa de precios por símbolo y fecha
+    // 7 — Construir mapa de precios por fecha y símbolo
     const priceMap = {}
     for (const row of priceHistory || []) {
       if (!priceMap[row.date]) priceMap[row.date] = {}
       priceMap[row.date][row.asset_symbol] = parseFloat(row.close_price)
     }
 
-    // 6 — Calcular posiciones acumuladas por día
-    // Para cada día del período, calculamos cuántas acciones teníamos
     const allDates = [...new Set(Object.keys(priceMap))].sort()
 
-    const portfolioHistory = []
-
+    // 8 — Calcular valor de posiciones por día (sin cash)
+    const positionValueByDate = []
     for (const date of allDates) {
-      // Calcular posiciones acumuladas hasta este día
       const positions = {}
       for (const trade of trades) {
-        if (trade.trade_date <= date) {
-          if (!positions[trade.asset_symbol]) positions[trade.asset_symbol] = 0
-          positions[trade.asset_symbol] += parseFloat(trade.quantity)
-        }
+        if (trade.trade_date > date) continue
+        if (!positions[trade.asset_symbol]) positions[trade.asset_symbol] = 0
+        const qty = parseFloat(trade.quantity)
+        positions[trade.asset_symbol] += trade.buy_sell === 'BUY' ? qty : -qty
       }
 
-      // Calcular valor del portfolio ese día
-      let totalValue = 0
-      let hasAllPrices = false
-
+      let posValue = 0
+      let hasData = false
       for (const [symbol, qty] of Object.entries(positions)) {
         if (qty <= 0) continue
         const price = priceMap[date]?.[symbol]
-        if (price) {
-          totalValue += qty * price
-          hasAllPrices = true
-        }
+        if (price) { posValue += qty * price; hasData = true }
       }
 
-      if (hasAllPrices && totalValue > 0) {
-        portfolioHistory.push({ date, value: parseFloat(totalValue.toFixed(2)) })
-      }
+      if (hasData) positionValueByDate.push({ date, posValue })
     }
 
-    // 7 — Normalizar ambas líneas a base 100
-    const normalizeHistory = (history, valueKey = 'value') => {
-      if (!history || history.length === 0) return []
-      const firstValue = history[0][valueKey]
-      if (!firstValue || firstValue === 0) return history
-      return history.map(row => ({
-        ...row,
-        normalized: parseFloat(((row[valueKey] / firstValue) * 100).toFixed(2)),
+    // 9 — Calcular valor total (posiciones + cash aproximado)
+    const totalValueHistory = positionValueByDate.map(row => {
+      // Encontrar el cash más cercano a esa fecha
+      let cashForDate = currentCash
+      const tradeDatesBeforeOrOn = Object.keys(cashByDate).filter(d => d <= row.date).sort()
+      if (tradeDatesBeforeOrOn.length > 0) {
+        cashForDate = cashByDate[tradeDatesBeforeOrOn[tradeDatesBeforeOrOn.length - 1]]
+      }
+      return {
+        date: row.date,
+        value: parseFloat((row.posValue + cashForDate).toFixed(2)),
+      }
+    })
+
+    // 10 — TWR (Time-Weighted Return) para retorno vs benchmark
+    // Dividimos en sub-períodos por cada fecha de compra
+    const buyDates = [...new Set(trades.filter(t => t.buy_sell === 'BUY').map(t => t.trade_date))].sort()
+
+    // Sub-períodos: [fromStr, buyDate1], [buyDate1, buyDate2], ..., [lastBuyDate, today]
+    const subPeriodBoundaries = [fromStr, ...buyDates.filter(d => d >= fromStr), allDates[allDates.length - 1]].filter((d, i, arr) => arr.indexOf(d) === i).sort()
+
+    let cumulativeTWR = 1
+
+    const twrByDate = {}
+    let prevSubPeriodReturn = 1
+
+    for (let i = 0; i < subPeriodBoundaries.length - 1; i++) {
+      const subStart = subPeriodBoundaries[i]
+      const subEnd = subPeriodBoundaries[i + 1]
+
+      const startRow = positionValueByDate.find(r => r.date >= subStart)
+      const endRow = [...positionValueByDate].reverse().find(r => r.date <= subEnd)
+
+      if (!startRow || !endRow || startRow.posValue === 0) continue
+
+      const subReturn = endRow.posValue / startRow.posValue
+
+      // Guardar TWR acumulado para cada fecha del sub-período
+      const datesInSubPeriod = positionValueByDate.filter(r => r.date >= subStart && r.date <= subEnd)
+      for (const row of datesInSubPeriod) {
+        const dayReturn = row.posValue / startRow.posValue
+        twrByDate[row.date] = prevSubPeriodReturn * dayReturn
+      }
+
+      prevSubPeriodReturn *= subReturn
+    }
+
+    // 11 — Construir portfolio history normalizado con TWR
+    const portfolioHistory = positionValueByDate
+      .filter(row => twrByDate[row.date])
+      .map(row => ({
+        date: row.date,
+        value: row.posValue,
+        normalized: parseFloat((twrByDate[row.date] * 100).toFixed(2)),
       }))
-    }
 
-    const normalizedPortfolio = normalizeHistory(portfolioHistory)
-    const normalizedBenchmark = normalizeHistory(
-      (benchmarkHistory || []).map(r => ({ date: r.date, value: parseFloat(r.close_price) }))
-    )
+    // 12 — Normalizar benchmark
+    const normalizedBenchmark = (benchmarkHistory || []).map((r, i, arr) => ({
+      date: r.date,
+      value: parseFloat(r.close_price),
+      normalized: parseFloat(((parseFloat(r.close_price) / parseFloat(arr[0].close_price)) * 100).toFixed(2)),
+    }))
 
-    // 8 — Calcular rendimiento total del período
+    // 13 — Retornos totales del período
     const portfolioReturn = portfolioHistory.length > 1
-      ? (((portfolioHistory[portfolioHistory.length - 1].value - portfolioHistory[0].value) / portfolioHistory[0].value) * 100).toFixed(2)
+      ? parseFloat((portfolioHistory[portfolioHistory.length - 1].normalized - 100).toFixed(2))
       : 0
 
-    const benchmarkReturn = benchmarkHistory?.length > 1
-      ? (((parseFloat(benchmarkHistory[benchmarkHistory.length - 1].close_price) - parseFloat(benchmarkHistory[0].close_price)) / parseFloat(benchmarkHistory[0].close_price)) * 100).toFixed(2)
+    const benchmarkReturn = normalizedBenchmark.length > 1
+      ? parseFloat((normalizedBenchmark[normalizedBenchmark.length - 1].normalized - 100).toFixed(2))
       : 0
 
     return res.status(200).json({
-      portfolioHistory: normalizedPortfolio,
+      portfolioHistory,
+      portfolioValueHistory: totalValueHistory,
       benchmarkHistory: normalizedBenchmark,
-      portfolioReturn: parseFloat(portfolioReturn),
-      benchmarkReturn: parseFloat(benchmarkReturn),
+      portfolioReturn,
+      benchmarkReturn,
       benchmark,
       period,
     })
