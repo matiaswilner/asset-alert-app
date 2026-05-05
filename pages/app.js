@@ -12,6 +12,8 @@ import AssetSearch from '../components/ui/AssetSearch'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import AnalysisProgressBar from '../components/ui/ProgressBar'
+import PortfolioTab from '../components/portfolio/PortfolioTab'
+import { isV4Enabled } from '../lib/config'
 
 const fadeIn = `
   @keyframes fadeIn {
@@ -27,6 +29,7 @@ const tabs = [
   { id: 'watchlist', label: 'Watchlist', icon: '👁' },
   { id: 'analyses', label: 'Análisis', icon: '🧠' },
   { id: 'notifications', label: 'Historial', icon: '📋' },
+  { id: 'portfolio', label: 'Portfolio', icon: '💼' },
 ]
 
 export default function App() {
@@ -49,6 +52,11 @@ export default function App() {
   const [errorToast, setErrorToast] = useState(null)
   const [showSmartAlertInfo, setShowSmartAlertInfo] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [portfolio, setPortfolio] = useState(null)
+  const [portfolioLoading, setPortfolioLoading] = useState(false)
+  const [showUploader, setShowUploader] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
 
   // Watchlist flow
   const [showWatchlistSearch, setShowWatchlistSearch] = useState(false)
@@ -121,7 +129,7 @@ export default function App() {
 
   async function fetchAll() {
     try {
-      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices()])
+      await Promise.all([fetchAlerts(), fetchAnalyses(), fetchWatchlist(), fetchNotifications(), fetchPrices(), fetchPortfolio()])
     } catch (err) {
       console.error('fetchAll error:', err.message)
     } finally {
@@ -154,6 +162,19 @@ export default function App() {
     const map = {}
     for (const p of data || []) map[p.asset_symbol] = p
     setPrices(map)
+  }
+
+  async function fetchPortfolio() {
+    if (!user || !isV4Enabled(user.id)) return
+    setPortfolioLoading(true)
+    try {
+      const res = await fetch(`/api/get-portfolio?userId=${user.id}`)
+      const data = await res.json()
+      setPortfolio(data)
+    } catch (err) {
+      console.error('fetchPortfolio error:', err)
+    }
+    setPortfolioLoading(false)
   }
 
   // Watchlist handlers
@@ -357,6 +378,26 @@ export default function App() {
       showError(`Error al analizar ${item.asset_symbol}. Intentá de nuevo.`)
     }
     setAnalyzingSymbol(null)
+  }
+
+  async function syncPortfolio(csvContent) {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/sync-portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id, csvContent }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSyncResult({ success: true, ...data })
+      setShowUploader(false)
+      await fetchPortfolio()
+    } catch (err) {
+      setSyncResult({ success: false, error: err.message })
+    }
+    setSyncing(false)
   }
 
   if (loading) {
@@ -593,6 +634,18 @@ export default function App() {
           </div>
         )}
 
+{activeTab === 'portfolio' && isV4Enabled(user?.id) && (
+          <PortfolioTab
+            portfolio={portfolio}
+            portfolioLoading={portfolioLoading}
+            showUploader={showUploader}
+            syncing={syncing}
+            syncResult={syncResult}
+            onToggleUploader={() => { setShowUploader(!showUploader); setSyncResult(null) }}
+            onSync={syncPortfolio}
+          />
+        )}
+
         {activeTab === 'notifications' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
@@ -606,7 +659,7 @@ export default function App() {
 
       {/* Bottom Navigation */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', background: 'rgba(13, 13, 20, 0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)', display: 'flex', padding: '8px 0 calc(8px + env(safe-area-inset-bottom))' }}>
-        {tabs.map(tab => (
+        {tabs.filter(tab => tab.id !== 'portfolio' || isV4Enabled(user?.id)).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
