@@ -1,11 +1,37 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function InfoTooltip({ text }) {
   const [visible, setVisible] = useState(false)
+  const buttonRef = useRef(null)
+
+  const getTooltipStyle = () => {
+    if (!buttonRef.current) return {}
+    const rect = buttonRef.current.getBoundingClientRect()
+    const tooltipWidth = 240
+    const screenWidth = window.innerWidth
+    const spaceOnLeft = rect.left
+    const spaceOnRight = screenWidth - rect.right
+
+    let left = '50%'
+    let transform = 'translateX(-50%)'
+
+    if (spaceOnLeft < tooltipWidth / 2 + 16) {
+      // Muy cerca del borde izquierdo — alinear a la izquierda
+      left = '0'
+      transform = 'translateX(0)'
+    } else if (spaceOnRight < tooltipWidth / 2 + 16) {
+      // Muy cerca del borde derecho — alinear a la derecha
+      left = 'auto'
+      transform = 'translateX(0)'
+    }
+
+    return { left, transform }
+  }
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       <button
+        ref={buttonRef}
         onClick={() => setVisible(!visible)}
         style={{
           background: 'var(--bg-tertiary)',
@@ -34,8 +60,7 @@ export default function InfoTooltip({ text }) {
           <div style={{
             position: 'absolute',
             bottom: '24px',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            ...getTooltipStyle(),
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
             borderRadius: '12px',
