@@ -11,7 +11,7 @@ export const config = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { userId, csvContent } = req.body
+  const { userId, csvContent, isLatest = true } = req.body
 
   if (!userId || !csvContent) {
     return res.status(400).json({ error: 'userId and csvContent are required' })
@@ -38,23 +38,24 @@ export default async function handler(req, res) {
 
     const { positions, trades, cashBalance } = parsed
 
-    if (positions.length === 0) {
+    if (positions.length === 0 && !isLatest) {
+      // Archivo histórico sin posiciones — solo importamos trades
+    } else if (positions.length === 0) {
       return res.status(400).json({ error: 'No se encontraron posiciones en el archivo. Verificá que el archivo sea un Activity Statement válido.' })
     }
 
     // 2 — Enriquecer tipos de activos desde asset_directory
-    const symbols = positions.map(p => p.asset_symbol)
+    const allSymbols = [...new Set([...positions.map(p => p.asset_symbol), ...trades.map(t => t.asset_symbol)])]
     const { data: directoryEntries } = await supabase
       .from('asset_directory')
       .select('asset_symbol, asset_type')
-      .in('asset_symbol', symbols)
+      .in('asset_symbol', allSymbols)
 
     const directoryMap = {}
     for (const entry of directoryEntries || []) {
       directoryMap[entry.asset_symbol] = entry.asset_type
     }
 
-    // Usar el tipo del asset_directory si está disponible
     const enrichedPositions = positions.map(p => ({
       ...p,
       asset_type: directoryMap[p.asset_symbol] || p.asset_type,
@@ -63,35 +64,62 @@ export default async function handler(req, res) {
     // 3 — Calcular métricas del portfolio
     const { positions: calculatedPositions, totalValue, cashPct } = calculatePortfolioMetrics(enrichedPositions, cashBalance)
 
-    // 4 — Upsert en portfolio_positions
-    const positionRows = calculatedPositions.map(p => ({
-      user_id: userId,
-      asset_symbol: p.asset_symbol,
-      asset_type: p.asset_type,
-      quantity: p.quantity,
-      avg_cost: p.avg_cost,
-      current_price: p.close_price,
-      market_value: p.market_value,
-      weight_pct: p.weight_pct,
-      unrealized_pnl: p.unrealized_pnl,
-      last_synced_at: new Date().toISOString(),
-    }))
+    // 4 — Upsert en portfolio_positions SOLO si es el archivo más reciente
+    if (isLatest && calculatedPositions.length > 0) {
+      const positionRows = calculatedPositions.map(p => ({
+        user_id: userId,
+        asset_symbol: p.asset_symbol,
+        asset_type: p.asset_type,
+        quantity: p.quantity,
+        avg_cost: p.avg_cost,
+        current_price: p.close_price,
+        market_value: p.market_value,
+        weight_pct: p.weight_pct,
+        unrealized_pnl: p.unrealized_pnl,
+        last_synced_at: new Date().toISOString(),
+      }))
 
-    const { error: positionsError } = await supabase
-      .from('portfolio_positions')
-      .upsert(positionRows, { onConflict: 'user_id,asset_symbol' })
+      const { error: positionsError } = await supabase
+        .from('portfolio_positions')
+        .upsert(positionRows, { onConflict: 'user_id,asset_symbol' })
 
-    if (positionsError) {
-      await logError({
-        source: 'sync-portfolio.js:upsertPositions',
-        category: 'database',
-        message: positionsError.message,
-        details: { userId },
-      })
-      return res.status(500).json({ error: 'Error al guardar las posiciones.' })
+      if (positionsError) {
+        await logError({
+          source: 'sync-portfolio.js:upsertPositions',
+          category: 'database',
+          message: positionsError.message,
+          details: { userId },
+        })
+        return res.status(500).json({ error: 'Error al guardar las posiciones.' })
+      }
+
+      // Guardar snapshot diario solo del archivo más reciente
+      const today = new Date().toISOString().split('T')[0]
+      await supabase
+        .from('portfolio_snapshots')
+        .upsert({
+          user_id: userId,
+          total_value: totalValue,
+          cash_balance: cashBalance,
+          positions: calculatedPositions,
+          snapshot_date: today,
+        }, { onConflict: 'user_id,snapshot_date' })
+
+      // Inicializar historial de precios para activos nuevos (fire and forget)
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+      for (const position of calculatedPositions) {
+        fetch(`${baseUrl}/api/init-price-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: position.asset_symbol,
+            assetType: position.asset_type,
+          }),
+        }).catch(() => {})
+      }
     }
 
-    // 5 — Insertar trades (ignorar duplicados via UNIQUE constraint)
+    // 5 — Insertar trades de todos los archivos
     if (trades.length > 0) {
       const tradeRows = trades.map(t => ({
         user_id: userId,
@@ -118,46 +146,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6 — Guardar snapshot diario
-    const today = new Date().toISOString().split('T')[0]
-    await supabase
-      .from('portfolio_snapshots')
-      .upsert({
-        user_id: userId,
-        total_value: totalValue,
-        cash_balance: cashBalance,
-        positions: calculatedPositions,
-        snapshot_date: today,
-      }, { onConflict: 'user_id,snapshot_date' })
-
-    // 7 — Log de sincronización exitosa
+    // 6 — Log de sincronización
     await supabase.from('portfolio_sync_log').insert({
       user_id: userId,
       sync_method: 'csv',
       status: 'success',
-      positions_count: calculatedPositions.length,
+      positions_count: isLatest ? calculatedPositions.length : 0,
     })
 
-    // 8 — Inicializar historial de precios para activos nuevos (fire and forget)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-    for (const position of calculatedPositions) {
-      fetch(`${baseUrl}/api/init-price-history`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: position.asset_symbol,
-          assetType: position.asset_type,
-        }),
-      }).catch(() => {})
-    }
-
     return res.status(200).json({
-      message: 'Portfolio sincronizado correctamente',
-      positions: calculatedPositions.length,
+      message: isLatest ? 'Portfolio sincronizado correctamente' : 'Trades históricos importados correctamente',
+      positions: isLatest ? calculatedPositions.length : 0,
       trades: trades.length,
-      totalValue,
-      cashBalance,
-      cashPct,
+      totalValue: isLatest ? totalValue : 0,
+      cashBalance: isLatest ? cashBalance : 0,
+      cashPct: isLatest ? cashPct : 0,
+      isLatest,
     })
 
   } catch (err) {
