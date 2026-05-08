@@ -1,3 +1,13 @@
+import InfoTooltip from '../../ui/InfoTooltip'
+
+const PNL_TOOLTIP = `El P&L (Profit & Loss) no realizado muestra cuánto ganaste o perdiste en tu portfolio hasta el momento, sin haber vendido nada.
+
+Se calcula así: para cada activo, se toma el precio actual de mercado y se compara con tu precio promedio de compra (avg cost). La diferencia multiplicada por la cantidad de acciones que tenés es tu ganancia o pérdida en ese activo. La suma de todos los activos es el P&L total.
+
+Ejemplo: compraste 10 acciones de SPY a $600 (invertiste $6,000). Hoy SPY vale $720. Tu P&L es (720 - 600) × 10 = +$1,200.
+
+Se llama 'no realizado' porque mientras no vendas, es solo una ganancia en papel — el mercado puede subir o bajar y cambiar ese número.`
+
 export default function PortfolioSummaryCards({ positions }) {
   if (!positions || positions.length === 0) return null
 
@@ -23,9 +33,12 @@ export default function PortfolioSummaryCards({ positions }) {
 
       {/* P&L Total */}
       <div style={{ background: 'var(--bg-card)', borderRadius: '16px', padding: '16px', border: '1px solid var(--border)' }}>
-        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-          P&L Total no realizado
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            P&L Total no realizado
+          </p>
+          <InfoTooltip text={PNL_TOOLTIP} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
           <span style={{ fontSize: '26px', fontWeight: '700', color: totalPnL >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
             {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
