@@ -181,7 +181,7 @@ export default function PortfolioCharts({ positions, userId }) {
           </Card>
           <Card>
             <ChartTitle title="Rendimiento vs SPY por activo" tooltipKey="assetVsBenchmark" />
-            <AssetVsBenchmarkChart positions={positions} />
+            <AssetVsBenchmarkChart positions={positions || []} />
           </Card>
         </>
       )}
