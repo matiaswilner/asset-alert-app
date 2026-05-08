@@ -11,9 +11,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p style={{ color: 'var(--text-tertiary)', marginBottom: '6px' }}>{label}</p>
       {payload.map(p => (
         <p key={p.name} style={{ color: p.color, fontWeight: '600', marginBottom: '2px' }}>
-          {p.name}: {p.dataKey === 'portfolioValue'
-            ? `$${parseFloat(p.value).toLocaleString('en-US', { minimumFractionDigits: 0 })}`
-            : `${p.value?.toFixed(1)}`}
+          {p.name}: {p.value?.toFixed(1)}
         </p>
       ))}
     </div>
@@ -32,12 +30,13 @@ const ValueTooltip = ({ active, payload, label }) => {
   )
 }
 
-export default function PortfolioLineChart({ userId }) {
+export default function PortfolioLineChart({ userId, showOnlyReturns = false, showOnlyValue = false }) {
   const [period, setPeriod] = useState('1A')
   const [benchmark, setBenchmark] = useState('SPY')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeChart, setActiveChart] = useState('returns')
+
+  const activeChart = showOnlyValue ? 'value' : 'returns'
 
   useEffect(() => {
     fetchHistory()
@@ -55,7 +54,6 @@ export default function PortfolioLineChart({ userId }) {
     setLoading(false)
   }
 
-  // Gráfica de retornos normalizados (base 100 desde primera compra)
   const returnsData = data?.portfolioHistory?.map(row => {
     const benchmarkRow = data.benchmarkHistory?.find(b => b.date === row.date)
     return {
@@ -65,36 +63,15 @@ export default function PortfolioLineChart({ userId }) {
     }
   }) || []
 
-  // Gráfica de valor absoluto del portfolio
   const valueData = data?.portfolioValueHistory?.map(row => ({
     date: row.date,
     portfolioValue: row.value,
   })) || []
 
+  const chartData = activeChart === 'returns' ? returnsData : valueData
+
   return (
     <div>
-      {/* Chart type selector */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
-        {[
-          { id: 'returns', label: 'Retorno vs benchmark' },
-          { id: 'value', label: 'Valor total' },
-        ].map(opt => (
-          <button
-            key={opt.id}
-            onClick={() => setActiveChart(opt.id)}
-            style={{
-              background: activeChart === opt.id ? 'var(--bg-tertiary)' : 'none',
-              color: activeChart === opt.id ? 'var(--text-primary)' : 'var(--text-tertiary)',
-              border: activeChart === opt.id ? '1px solid var(--border)' : '1px solid transparent',
-              borderRadius: '8px', padding: '5px 10px',
-              fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
       {/* Period selector */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', overflowX: 'auto' }}>
         {PERIODS.map(p => (
@@ -154,7 +131,7 @@ export default function PortfolioLineChart({ userId }) {
 
       {loading ? (
         <div style={{ height: '200px', background: 'var(--bg-tertiary)', borderRadius: '12px' }} />
-      ) : (activeChart === 'returns' ? returnsData : valueData).length === 0 ? (
+      ) : chartData.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
           Sin datos para este período
         </div>
@@ -178,12 +155,6 @@ export default function PortfolioLineChart({ userId }) {
             <Line type="monotone" dataKey="portfolioValue" name="Valor" stroke="var(--accent)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
-      )}
-
-      {activeChart === 'returns' && (
-        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '8px', lineHeight: '1.5' }}>
-          * El retorno se calcula desde la primera compra del período. Los saltos bruscos indican nuevas compras.
-        </p>
       )}
     </div>
   )
