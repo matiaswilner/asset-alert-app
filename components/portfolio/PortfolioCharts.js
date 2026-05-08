@@ -44,6 +44,8 @@ const TOOLTIPS = {
   correlation: "Mide qué tan parecido se mueve cada activo al S&P 500. Una correlación alta (cercana a 1) significa que el activo sube y baja casi igual que el mercado. Una correlación baja indica más independencia.",
   capitalDeployed: "Muestra cuánto dinero invertiste en cada mes, trimestre o año. Te ayuda a ver si seguís una estrategia consistente de inversión gradual.",
   purchaseHistory: "Muestra el precio histórico de un activo con marcadores verdes en cada fecha en que compraste. La línea punteada es tu precio promedio de compra — si el precio actual está por encima, estás en ganancia.",
+  totalValueApprox: "Muestra la evolución del valor de tu portfolio usando tus posiciones actuales aplicadas a precios históricos. Es una aproximación — no considera cuándo compraste cada activo, solo cuántos tenés hoy.",
+  realValueExact: "Calcula el valor exacto de tu portfolio en cada momento usando las posiciones reales que tenías ese día. A diferencia del 'Valor total aproximado', este sí considera cuándo compraste cada activo — si compraste SPY en marzo, antes de esa fecha no aparece en el cálculo.",
 }
 
 function ChartTitle({ title, tooltipKey }) {
@@ -166,11 +168,16 @@ export default function PortfolioCharts({ positions, userId }) {
         <>
           <Card>
             <ChartTitle title="Retorno vs benchmark" tooltipKey="returnVsBenchmark" />
-            <PortfolioLineChart userId={userId} />
+            <PortfolioLineChart userId={userId} showOnlyReturns />
           </Card>
           <Card>
-            <ChartTitle title="Valor real del portfolio" tooltipKey="realValue" />
+            <ChartTitle title="Valor total del portfolio (aproximado)" tooltipKey="totalValueApprox" />
+            <PortfolioLineChart userId={userId} showOnlyValue />
+          </Card>
+          <Card>
+            <ChartTitle title="Valor real del portfolio" tooltipKey="realValueExact" />
             <PortfolioRealValueChart userId={userId} />
+          </Card>
           </Card>
           <Card>
             <ChartTitle title="Rendimiento vs SPY por activo" tooltipKey="assetVsBenchmark" />
