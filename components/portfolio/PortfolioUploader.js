@@ -7,7 +7,7 @@ const INSTRUCTIONS = [
   'Seleccioná "Custom Date Range" como tipo',
   'Elegí el rango de fechas (máximo 1 año por archivo)',
   'Seleccioná formato CSV y hacé clic en Run',
-  'Si tenés más de 1 año de historial, repetí para cada año',
+  'Si tenés más de 1 año de historial, repetí para cada año y subí todos juntos',
 ]
 
 export default function PortfolioUploader({ syncing, syncResult, onSync }) {
@@ -15,10 +15,18 @@ export default function PortfolioUploader({ syncing, syncResult, onSync }) {
 
   async function handleFiles(e) {
     const files = Array.from(e.target.files)
-    for (const file of files) {
+
+    // Ordenar por nombre de archivo (formato U12345_YYYYMMDD_YYYYMMDD.csv)
+    // El archivo más reciente es el último en orden alfabético
+    const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name))
+
+    for (let i = 0; i < sortedFiles.length; i++) {
+      const file = sortedFiles[i]
       const text = await file.text()
-      await onSync(text)
+      const isLatest = i === sortedFiles.length - 1
+      await onSync(text, isLatest)
     }
+
     e.target.value = ''
   }
 
@@ -76,7 +84,7 @@ export default function PortfolioUploader({ syncing, syncResult, onSync }) {
       >
         <p style={{ fontSize: '24px', marginBottom: '8px' }}>📄</p>
         <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>
-          {syncing ? 'Procesando...' : 'Tocá para seleccionar el archivo CSV'}
+          {syncing ? 'Procesando...' : 'Tocá para seleccionar los archivos CSV'}
         </p>
         <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
           Podés subir múltiples archivos (uno por año)
