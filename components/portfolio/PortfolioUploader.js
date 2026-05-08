@@ -16,15 +16,52 @@ export default function PortfolioUploader({ syncing, syncResult, onSync }) {
   async function handleFiles(e) {
     const files = Array.from(e.target.files)
 
-    // Ordenar por nombre de archivo (formato U12345_YYYYMMDD_YYYYMMDD.csv)
-    // El archivo más reciente es el último en orden alfabético
-    const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name))
+    // Leer el contenido de todos los archivos
+    const filesWithContent = await Promise.all(
+      files.map(async file => ({
+        file,
+        text: await file.text(),
+      }))
+    )
 
-    for (let i = 0; i < sortedFiles.length; i++) {
-      const file = sortedFiles[i]
-      const text = await file.text()
-      const isLatest = i === sortedFiles.length - 1
-      await onSync(text, isLatest)
+    // Extraer la fecha final del período de cada archivo
+    // Formato: Statement,Data,Period,"January 1, 2026 - May 1, 2026"
+    const filesWithDate = filesWithContent.map(({ file, text }) => {
+      let endDate = null
+      const lines = text.split('\n').slice(0, 20)
+      for (const line of lines) {
+        if (line.startsWith('Statement,Data,Period') || line.startsWith('Statement,Data,Per')) {
+          const match = line.match(/(\d{4})[",\s]*$/)
+          if (match) {
+            // Extraer año del final del período
+            const yearMatch = line.match(/(\w+ \d+, \d{4})[^,]*$|(\d{4}-\d{2}-\d{2})[^,]*$/)
+            if (yearMatch) {
+              endDate = new Date(yearMatch[1] || yearMatch[2])
+            }
+          }
+          // Fallback: buscar el año más reciente en la línea
+          const years = line.match(/20\d{2}/g)
+          if (years) {
+            const lastYear = Math.max(...years.map(Number))
+            const months = line.match(/(\w+) \d+, (\d{4})/g)
+            if (months) {
+              endDate = new Date(months[months.length - 1])
+            } else {
+              endDate = new Date(`${lastYear}-12-31`)
+            }
+          }
+          break
+        }
+      }
+      return { text, endDate: endDate || new Date(0) }
+    })
+
+    // Ordenar por fecha final — el más reciente es el isLatest
+    filesWithDate.sort((a, b) => a.endDate - b.endDate)
+
+    for (let i = 0; i < filesWithDate.length; i++) {
+      const isLatest = i === filesWithDate.length - 1
+      await onSync(filesWithDate[i].text, isLatest)
     }
 
     e.target.value = ''
