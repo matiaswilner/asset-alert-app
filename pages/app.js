@@ -393,14 +393,14 @@ export default function App() {
     setAnalyzingSymbol(null)
   }
 
-  async function syncPortfolio(csvContent) {
+  async function syncPortfolio(csvContent, isLatest = true) {
     setSyncing(true)
     setSyncResult(null)
     try {
       const res = await fetch('/api/sync-portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, csvContent }),
+        body: JSON.stringify({ userId: user?.id, csvContent, isLatest }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
