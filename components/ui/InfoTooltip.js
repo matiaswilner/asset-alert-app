@@ -27,7 +27,7 @@ export default function InfoTooltip({ text, large = false }) {
   }
 
   return (
-    <>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       <button
         ref={buttonRef}
         onClick={() => setVisible(!visible)}
@@ -131,6 +131,6 @@ export default function InfoTooltip({ text, large = false }) {
           </div>
         </>
       )}
-    </>
+    </div>
   )
 }
