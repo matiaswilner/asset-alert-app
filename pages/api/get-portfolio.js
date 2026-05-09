@@ -36,16 +36,56 @@ export default async function handler(req, res) {
       .limit(1),
   ])
 
+  // Obtener el último precio de cierre de price_history para cada activo
+  const symbols = (positions || []).map(p => p.asset_symbol)
+
+  const { data: latestPrices } = await supabase
+    .from('price_history')
+    .select('asset_symbol, close_price, date')
+    .in('asset_symbol', symbols)
+    .order('date', { ascending: false })
+    .limit(symbols.length * 5) // Traemos varios días por si algún activo no tiene el último día
+
+  // Quedarnos con el precio más reciente por símbolo
+  const priceMap = {}
+  for (const row of latestPrices || []) {
+    if (!priceMap[row.asset_symbol]) {
+      priceMap[row.asset_symbol] = parseFloat(row.close_price)
+    }
+  }
+
+  // Enriquecer posiciones con precios actuales y recalcular P&L y weights
+  const enrichedPositions = (positions || []).map(p => {
+    const currentPrice = priceMap[p.asset_symbol] || parseFloat(p.current_price)
+    const quantity = parseFloat(p.quantity)
+    const avgCost = parseFloat(p.avg_cost)
+    const marketValue = quantity * currentPrice
+    const unrealizedPnl = (currentPrice - avgCost) * quantity
+
+    return {
+      ...p,
+      current_price: currentPrice,
+      market_value: parseFloat(marketValue.toFixed(2)),
+      unrealized_pnl: parseFloat(unrealizedPnl.toFixed(2)),
+    }
+  })
+
+  // Recalcular weights con precios actualizados
+  const totalPositionsValue = enrichedPositions.reduce((sum, p) => sum + p.market_value, 0)
+  const finalPositions = enrichedPositions.map(p => ({
+    ...p,
+    weight_pct: parseFloat(((p.market_value / totalPositionsValue) * 100).toFixed(2)),
+  })).sort((a, b) => b.weight_pct - a.weight_pct)
+
   const lastSync = syncLog?.[0] || null
-  const positionsValue = positions?.reduce((sum, p) => sum + (parseFloat(p.market_value) || 0), 0) || 0
-  const cashBalance = snapshots?.[0]?.cash_balance || 0
-  const totalValue = positionsValue + cashBalance
+  const cashBalance = parseFloat(snapshots?.[0]?.cash_balance || 0)
+  const totalValue = totalPositionsValue + cashBalance
 
   return res.status(200).json({
-    positions: positions || [],
+    positions: finalPositions,
     snapshots: snapshots || [],
-    totalValue,
-    positionsValue,
+    totalValue: parseFloat(totalValue.toFixed(2)),
+    positionsValue: parseFloat(totalPositionsValue.toFixed(2)),
     cashBalance,
     lastSync,
   })
