@@ -37,7 +37,7 @@ export default function PortfolioSummaryCards({ positions }) {
           <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             P&L Total no realizado
           </p>
-          <InfoTooltip text={PNL_TOOLTIP} />
+          <InfoTooltip text={PNL_TOOLTIP} large />
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
           <span style={{ fontSize: '26px', fontWeight: '700', color: totalPnL >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
