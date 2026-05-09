@@ -7,25 +7,33 @@ export default function InfoTooltip({ text }) {
   const getTooltipStyle = () => {
     if (!buttonRef.current) return {}
     const rect = buttonRef.current.getBoundingClientRect()
-    const tooltipWidth = 240
+    const tooltipWidth = 260
     const screenWidth = window.innerWidth
     const spaceOnLeft = rect.left
     const spaceOnRight = screenWidth - rect.right
+    const spaceAbove = rect.top
 
     let left = '50%'
     let transform = 'translateX(-50%)'
+    let bottom = '24px'
+    let top = 'auto'
 
+    // Ajuste horizontal
     if (spaceOnLeft < tooltipWidth / 2 + 16) {
-      // Muy cerca del borde izquierdo — alinear a la izquierda
       left = '0'
       transform = 'translateX(0)'
     } else if (spaceOnRight < tooltipWidth / 2 + 16) {
-      // Muy cerca del borde derecho — alinear a la derecha
       left = 'auto'
       transform = 'translateX(0)'
     }
 
-    return { left, transform }
+    // Si no hay suficiente espacio arriba, mostrar abajo
+    if (spaceAbove < 200) {
+      bottom = 'auto'
+      top = '24px'
+    }
+
+    return { left, transform, bottom, top }
   }
 
   return (
@@ -59,7 +67,6 @@ export default function InfoTooltip({ text }) {
           />
           <div style={{
             position: 'absolute',
-            bottom: '24px',
             ...getTooltipStyle(),
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
@@ -68,9 +75,12 @@ export default function InfoTooltip({ text }) {
             fontSize: '12px',
             color: 'var(--text-secondary)',
             lineHeight: '1.6',
-            width: '240px',
+            width: '260px',
+            maxHeight: '60vh',
+            overflowY: 'auto',
             zIndex: 999,
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            whiteSpace: 'pre-line',
           }}>
             {text}
           </div>
