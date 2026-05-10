@@ -1,5 +1,5 @@
 import { supabaseServer as supabase } from '../../lib/supabaseServer'
-import { callSonnet } from '../../lib/ai'
+import { callSonnet, callOpus } from '../../lib/ai'
 import { buildPortfolioAnalysisPrompt } from '../../lib/prompts/portfolio'
 import { isV4Enabled } from '../../lib/config'
 import { logError } from '../../lib/logger'
@@ -81,10 +81,10 @@ export default async function handler(req, res) {
 
     let analysis
     try {
-      analysis = await callSonnet(prompt)
+      analysis = await callOpus(prompt)
     } catch (err) {
       await logError({
-        source: 'analyze-portfolio.js:callSonnet',
+        source: 'analyze-portfolio.js:callOpus',
         category: 'external_api',
         message: err.message,
         details: { userId },
