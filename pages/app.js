@@ -13,6 +13,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import AnalysisProgressBar from '../components/ui/ProgressBar'
 import PortfolioTab from '../components/portfolio/PortfolioTab'
+import PortfolioChat from '../components/portfolio/PortfolioChat'
 import { isV4Enabled } from '../lib/config'
 
 const fadeIn = `
@@ -30,6 +31,7 @@ const tabs = [
   { id: 'analyses', label: 'Análisis', icon: '🧠' },
   { id: 'notifications', label: 'Historial', icon: '📋' },
   { id: 'portfolio', label: 'Portfolio', icon: '💼' },
+  { id: 'chat', label: 'Asesor', icon: '💬' },
 ]
 
 export default function App() {
@@ -57,6 +59,7 @@ export default function App() {
   const [showUploader, setShowUploader] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
+  const [chatAnalysis, setChatAnalysis] = useState(null)
 
   // Watchlist flow
   const [showWatchlistSearch, setShowWatchlistSearch] = useState(false)
@@ -661,6 +664,30 @@ export default function App() {
           />
         )}
 
+{activeTab === 'chat' && isV4Enabled(user?.id) && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Asesor</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Tu asesor financiero personal con contexto de tu portfolio
+              </p>
+            </div>
+            {!portfolio?.positions?.length ? (
+              <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+                <p style={{ fontSize: '32px', marginBottom: '12px' }}>💼</p>
+                <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Sincronizá tu portfolio primero
+                </p>
+                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>
+                  El asesor necesita los datos de tu portfolio para darte respuestas personalizadas.
+                </p>
+              </div>
+            ) : (
+              <PortfolioChat userId={user?.id} initialAnalysis={chatAnalysis} />
+            )}
+          </div>
+        )}
+
         {activeTab === 'notifications' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
@@ -674,7 +701,7 @@ export default function App() {
 
       {/* Bottom Navigation */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', background: 'rgba(13, 13, 20, 0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)', display: 'flex', padding: '8px 0 calc(8px + env(safe-area-inset-bottom))' }}>
-        {tabs.filter(tab => tab.id !== 'portfolio' || isV4Enabled(user?.id)).map(tab => (
+        {tabs.filter(tab => (tab.id !== 'portfolio' && tab.id !== 'chat') || isV4Enabled(user?.id)).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
