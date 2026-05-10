@@ -1,7 +1,7 @@
 import WatchlistCard from './WatchlistCard'
 import EmptyState from '../ui/EmptyState'
 
-export default function WatchlistList({ watchlist, prices, onToggle, onRemove, onAnalyze, analyzingSymbol, analyses }) {
+export default function WatchlistList({ watchlist, prices, onToggle, onRemove, onAnalyze, analyzingSymbol, analyses, portfolioPositions }) {
   if (watchlist.length === 0) {
     return (
       <EmptyState
@@ -16,15 +16,16 @@ export default function WatchlistList({ watchlist, prices, onToggle, onRemove, o
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {watchlist.map(item => (
         <WatchlistCard
-          key={item.id}
-          item={item}
-          price={prices[item.asset_symbol]}
-          onToggle={onToggle}
-          onRemove={onRemove}
-          onAnalyze={onAnalyze}
-          analyzingSymbol={analyzingSymbol}
-          analyses={analyses}
-        />
+            key={item.id}
+            item={item}
+            price={prices[item.asset_symbol]}
+            onToggle={onToggle}
+            onRemove={onRemove}
+            onAnalyze={onAnalyze}
+            analyzingSymbol={analyzingSymbol}
+            analyses={analyses}
+            position={portfolioPositions.find(p => p.asset_symbol === item.asset_symbol) || null}
+          />
       ))}
     </div>
   )
