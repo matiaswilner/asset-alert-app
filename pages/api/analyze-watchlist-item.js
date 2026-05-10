@@ -10,7 +10,6 @@ export const config = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
@@ -54,11 +53,22 @@ export default async function handler(req, res) {
       .update({ processed: true })
       .eq('asset_symbol', symbol)
       .eq('processed', false)
-
     return res.status(200).json({ symbol, status: 'skipped', reason: evaluation.reason })
   }
 
-  // Paso 2 — Sonnet genera el análisis completo
+  // Paso 2 — Obtener posición del portfolio si el usuario tiene este activo
+  let portfolioPosition = null
+  if (userId) {
+    const { data: position } = await supabase
+      .from('portfolio_positions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('asset_symbol', symbol)
+      .single()
+    if (position) portfolioPosition = position
+  }
+
+  // Paso 3 — Sonnet genera el análisis completo con contexto de portfolio
   const analysisPrompt = buildAnalysisPrompt({
     symbol,
     priceChange: `${parseFloat(changeDay).toFixed(2)}%`,
@@ -66,6 +76,7 @@ export default async function handler(req, res) {
     newsData,
     currentPrice,
     previousPrice,
+    portfolioPosition,
   })
 
   let analysis
@@ -83,7 +94,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message })
   }
 
-  // Paso 3 — Guardar análisis
+  // Paso 4 — Guardar análisis
   const { error: insertError } = await supabase.from('alert_analyses').insert([{
     alert_id: null,
     asset_symbol: symbol,
@@ -95,6 +106,7 @@ export default async function handler(req, res) {
     recommendation: analysis.recommendation,
     score: analysis.score,
     confidence: analysis.confidence,
+    portfolio_note: analysis.portfolio_note || null,
     triggered_by: 'smart_alert',
     prompt_version: ANALYSIS_PROMPT_VERSION,
     user_id: userId,
@@ -109,7 +121,7 @@ export default async function handler(req, res) {
     })
   }
 
-  // Paso 4 — Notificar
+  // Paso 5 — Notificar
   await sendPushNotification({
     title: '🧠 Smart Alert',
     body: `${symbol}: ${analysis.recommendation} — ${analysis.summary}`,
