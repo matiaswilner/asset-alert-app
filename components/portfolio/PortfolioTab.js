@@ -14,6 +14,7 @@ export default function PortfolioTab({
   onToggleUploader,
   onSync,
   userId,
+  onAnalysisGenerated,
 }) {
   const hasPositions = portfolio?.positions?.length > 0
 
@@ -42,7 +43,7 @@ export default function PortfolioTab({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          <PortfolioAnalysis userId={userId} />
+          <PortfolioAnalysis userId={userId} onAnalysisGenerated={onAnalysisGenerated} />
 
           <div>
             <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
