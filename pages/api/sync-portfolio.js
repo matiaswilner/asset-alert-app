@@ -95,17 +95,46 @@ export default async function handler(req, res) {
 
       // Guardar snapshot diario solo del archivo más reciente
       const today = new Date().toISOString().split('T')[0]
-      await supabase
+      const { data: existingSnapshot } = await supabase
         .from('portfolio_snapshots')
-        .upsert({
+        .select('id')
+        .eq('user_id', userId)
+        .eq('snapshot_date', today)
+        .single()
+
+      if (!existingSnapshot) {
+        await supabase.from('portfolio_snapshots').insert({
           user_id: userId,
           total_value: totalValue,
           cash_balance: cashBalance,
           positions: calculatedPositions,
           snapshot_date: today,
-        }, { onConflict: 'user_id,snapshot_date' })
+        })
+      }
 
-      // Inicializar historial de precios para activos nuevos (fire and forget)
+      // 5 — Auto-watchlist
+      const { data: existingWatchlist } = await supabase
+        .from('watchlist')
+        .select('asset_symbol')
+        .eq('user_id', userId)
+
+      const watchlistSymbols = new Set((existingWatchlist || []).map(w => w.asset_symbol))
+
+      const newWatchlistItems = calculatedPositions
+        .filter(p => !watchlistSymbols.has(p.asset_symbol))
+        .map(p => ({
+          user_id: userId,
+          asset_symbol: p.asset_symbol,
+          asset_type: p.asset_type,
+          is_active: true,
+          source: 'portfolio',
+        }))
+
+      if (newWatchlistItems.length > 0) {
+        await supabase.from('watchlist').insert(newWatchlistItems)
+      }
+
+      // 6 — Inicializar historial de precios para activos nuevos (fire and forget)
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
       for (const position of calculatedPositions) {
         fetch(`${baseUrl}/api/init-price-history`, {
@@ -119,7 +148,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 5 — Insertar trades de todos los archivos
+    // 7 — Insertar trades de todos los archivos
     if (trades.length > 0) {
       const tradeRows = trades.map(t => ({
         user_id: userId,
@@ -146,7 +175,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6 — Log de sincronización
+    // 8 — Log de sincronización
     await supabase.from('portfolio_sync_log').insert({
       user_id: userId,
       sync_method: 'csv',
