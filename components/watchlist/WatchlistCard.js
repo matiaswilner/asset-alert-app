@@ -10,7 +10,7 @@ function getChangeColor(change) {
   return 'var(--text-secondary)'
 }
 
-export default function WatchlistCard({ item, price, onToggle, onRemove, onAnalyze, analyzingSymbol, analyses }) {
+export default function WatchlistCard({ item, price, onToggle, onRemove, onAnalyze, analyzingSymbol, analyses, position }) {
   const [showChart, setShowChart] = useState(false)
 
   return (
@@ -43,11 +43,20 @@ export default function WatchlistCard({ item, price, onToggle, onRemove, onAnaly
               </p>
             )}
           </div>
-          <Badge
-            label={item.is_active ? '🧠 Smart Alert' : 'Pausado'}
-            color={item.is_active ? 'var(--positive)' : 'var(--text-tertiary)'}
-            bg={item.is_active ? 'var(--positive-dim)' : 'var(--bg-tertiary)'}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+            {position && (
+              <Badge
+                label={`✅ OWNED · ${parseFloat(position.quantity).toFixed(4)}`}
+                color="#a78bfa"
+                bg="rgba(167,139,250,0.15)"
+              />
+            )}
+            <Badge
+              label={item.is_active ? '🧠 Smart Alert' : 'Pausado'}
+              color={item.is_active ? 'var(--positive)' : 'var(--text-tertiary)'}
+              bg={item.is_active ? 'var(--positive-dim)' : 'var(--bg-tertiary)'}
+            />
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <Button
