@@ -3,6 +3,7 @@ import PortfolioUploader from './PortfolioUploader'
 import PortfolioEmptyState from './PortfolioEmptyState'
 import PositionCard from './PositionCard'
 import PortfolioCharts from './PortfolioCharts'
+import PortfolioAnalysis from './PortfolioAnalysis'
 
 export default function PortfolioTab({
   portfolio,
@@ -40,6 +41,8 @@ export default function PortfolioTab({
         <PortfolioEmptyState />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          <PortfolioAnalysis userId={userId} />
 
           <div>
             <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
