@@ -117,6 +117,7 @@ export default async function handler(req, res) {
         recommendation: analysis.recommendation,
         score: analysis.score,
         confidence: analysis.confidence,
+        portfolio_note: analysis.portfolio_note || null,
         triggered_by: triggeredBy,
         prompt_version: ANALYSIS_PROMPT_VERSION,
         user_id: userId || null,
