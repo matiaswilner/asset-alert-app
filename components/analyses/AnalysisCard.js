@@ -51,6 +51,12 @@ export default function AnalysisCard({ a }) {
             <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Interpretación</p>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{a.interpretation}</p>
           </div>
+          {a.portfolio_note && (
+            <div style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '10px', padding: '12px' }}>
+              <p style={{ fontSize: '11px', color: '#a78bfa', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>💼 Tu posición</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{a.portfolio_note}</p>
+            </div>
+          )}
           <div>
             <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Score</p>
             <ScoreBar score={a.score ?? 0} />
