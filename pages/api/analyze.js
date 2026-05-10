@@ -72,6 +72,18 @@ export default async function handler(req, res) {
       }
     }
 
+    // Obtener posición del portfolio si el usuario tiene este activo
+    let portfolioPosition = null
+    if (userId) {
+      const { data: position } = await supabase
+        .from('portfolio_positions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('asset_symbol', symbol)
+        .single()
+      if (position) portfolioPosition = position
+    }
+
     const newsData = await fetchNews(symbol)
 
     const prompt = buildAnalysisPrompt({
@@ -81,6 +93,7 @@ export default async function handler(req, res) {
       newsData,
       currentPrice: resolvedCurrentPrice,
       previousPrice: resolvedPreviousPrice,
+      portfolioPosition,
     })
 
     let analysis
