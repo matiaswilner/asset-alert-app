@@ -627,15 +627,15 @@ export default function App() {
             )}
 
             <WatchlistList
-  watchlist={watchlist}
-  prices={prices}
-  onToggle={toggleWatchlist}
-  onRemove={removeFromWatchlist}
-  onAnalyze={analyzeFromWatchlist}
-  analyzingSymbol={analyzingSymbol}
-  analyses={analyses}
-  portfolioPositions={portfolio?.positions || []}
-/>
+              watchlist={watchlist}
+              prices={prices}
+              onToggle={toggleWatchlistItem}
+              onRemove={removeFromWatchlist}
+              onAnalyze={analyzeFromWatchlist}
+              analyzingSymbol={analyzingSymbol}
+              analyses={analyses}
+              portfolioPositions={portfolio?.positions || []}
+            />
           </div>
         )}
 
