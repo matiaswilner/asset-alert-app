@@ -661,6 +661,7 @@ export default function App() {
             onToggleUploader={() => { setShowUploader(!showUploader); setSyncResult(null) }}
             onSync={syncPortfolio}
             userId={user?.id}
+            onAnalysisGenerated={(text) => { setChatAnalysis(text); setActiveTab('chat') }}
           />
         )}
 
