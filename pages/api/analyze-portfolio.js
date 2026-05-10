@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   if (!isV4Enabled(userId)) return res.status(403).json({ error: 'Feature not available yet' })
 
   try {
+    // 1 — Obtener posiciones actuales
     const { data: positions, error: posError } = await supabase
       .from('portfolio_positions')
       .select('*')
@@ -28,6 +29,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No hay posiciones en el portfolio' })
     }
 
+    // 2 — Obtener precios actualizados desde price_history
+    const symbols = positions.map(p => p.asset_symbol)
+    const { data: latestPrices } = await supabase
+      .from('price_history')
+      .select('asset_symbol, close_price, date')
+      .in('asset_symbol', symbols)
+      .order('date', { ascending: false })
+      .limit(symbols.length * 5)
+
+    const priceMap = {}
+    for (const row of latestPrices || []) {
+      if (!priceMap[row.asset_symbol]) {
+        priceMap[row.asset_symbol] = parseFloat(row.close_price)
+      }
+    }
+
+    // 3 — Enriquecer posiciones con precios actuales
+    const enrichedPositions = positions.map(p => ({
+      ...p,
+      current_price: priceMap[p.asset_symbol] || parseFloat(p.current_price),
+      market_value: (priceMap[p.asset_symbol] || parseFloat(p.current_price)) * parseFloat(p.quantity),
+    }))
+
+    const totalPositionsValue = enrichedPositions.reduce((sum, p) => sum + p.market_value, 0)
+    const finalPositions = enrichedPositions.map(p => ({
+      ...p,
+      weight_pct: (p.market_value / totalPositionsValue) * 100,
+    }))
+
+    // 4 — Obtener cash
     const { data: snapshot } = await supabase
       .from('portfolio_snapshots')
       .select('cash_balance')
@@ -37,12 +68,12 @@ export default async function handler(req, res) {
       .single()
 
     const cashBalance = parseFloat(snapshot?.cash_balance || 0)
-    const positionsValue = positions.reduce((sum, p) => sum + parseFloat(p.market_value), 0)
-    const totalValue = positionsValue + cashBalance
+    const totalValue = totalPositionsValue + cashBalance
     const cashPct = totalValue > 0 ? (cashBalance / totalValue) * 100 : 0
 
+    // 5 — Llamar a Claude
     const prompt = buildPortfolioAnalysisPrompt({
-      positions,
+      positions: finalPositions,
       totalValue,
       cashBalance,
       cashPct,
