@@ -16,7 +16,7 @@ function getConfidenceLabel(c) {
   return 'Muy incierto'
 }
 
-export default function PortfolioAnalysis({ userId }) {
+export default function PortfolioAnalysis({ userId, onAnalysisGenerated }) {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -36,6 +36,10 @@ export default function PortfolioAnalysis({ userId }) {
       if (!res.ok) throw new Error(data.error)
       setAnalysis(data.analysis)
       setExpanded(true)
+      if (onAnalysisGenerated) {
+        const analysisText = `Análisis de tu portfolio:\n\n${data.analysis.summary}\n\n**Concentración:** ${data.analysis.concentration_detail}\n\n**Diversificación:** ${data.analysis.diversification}\n\n**Posiciones bajo agua:** ${data.analysis.underwater_positions}\n\n**Uso del cash:** ${data.analysis.cash_deployment}\n\n**Lo que está funcionando:** ${data.analysis.whats_working}\n\n**Oportunidades perdidas:** ${data.analysis.missed_opportunities}\n\n**Acciones prioritarias:**\n${data.analysis.priority_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
+        onAnalysisGenerated(analysisText)
+      }
     } catch (err) {
       setError(err.message)
     }
