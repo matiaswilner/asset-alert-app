@@ -34,12 +34,12 @@ const TOUR_TABS = [
   {
     icon: '💼',
     title: 'Portfolio',
-    description: 'Sincronizá tu portfolio de Interactive Brokers subiendo un Activity Statement en CSV. Vas a ver tus posiciones, pesos, P&L y gráficas de distribución, performance y riesgo. Los análisis de activos que tenés en el portfolio incluyen contexto de tu posición.',
+    description: 'Sincronizá tu portfolio de Interactive Brokers subiendo un Activity Statement en CSV. Vas a ver tus posiciones, pesos, P&L y gráficas de distribución, performance y riesgo.',
   },
   {
     icon: '💬',
     title: 'Asesor',
-    description: 'Tu asesor financiero personal con contexto de tu portfolio. Hacé cualquier pregunta sobre inversiones — qué hacer con el cash disponible, cómo rebalancear, qué pasa si el mercado cae — y recibís respuestas específicas a tu situación.',
+    description: 'Tu asesor financiero personal con contexto de tu portfolio. Hacé cualquier pregunta sobre inversiones y recibís respuestas específicas a tu situación.',
   },
 ]
 
@@ -62,7 +62,6 @@ export default function Onboarding() {
       const currentUser = await getCurrentUser()
       if (!currentUser) { router.replace('/login'); return }
       setUser(currentUser)
-
       const { data } = await supabase
         .from('push_subscriptions')
         .select('id')
@@ -81,10 +80,7 @@ export default function Onboarding() {
     setProgressLabel(labels[0])
     const interval = setInterval(() => {
       step += 1
-      if (step >= labels.length) {
-        clearInterval(interval)
-        return
-      }
+      if (step >= labels.length) { clearInterval(interval); return }
       setProgressStep(step)
       setProgressLabel(labels[step])
     }, 6000)
@@ -129,7 +125,6 @@ export default function Onboarding() {
   async function sendTestNotification() {
     if (!watchlistAdded || testSent) return
     setTestSent(true)
-
     await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,7 +137,6 @@ export default function Onboarding() {
         userId: user?.id,
       }),
     })
-
     await fetch('/api/send-test-notification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,10 +150,7 @@ export default function Onboarding() {
 
   async function completeOnboarding() {
     if (!user) return
-    await supabase
-      .from('user_profiles')
-      .update({ onboarding_completed: true })
-      .eq('id', user.id)
+    await supabase.from('user_profiles').update({ onboarding_completed: true }).eq('id', user.id)
     router.replace('/app')
   }
 
@@ -167,6 +158,7 @@ export default function Onboarding() {
     if (step === 2) return notifStatus === 'active'
     return true
   }
+
   function nextStep() {
     if (step === STEPS.length - 1) {
       completeOnboarding()
@@ -178,10 +170,10 @@ export default function Onboarding() {
   const progressPct = ((step + 1) / STEPS.length) * 100
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', maxWidth: '480px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxWidth: '480px', margin: '0 auto', padding: '24px', boxSizing: 'border-box' }}>
 
       {/* Progress bar */}
-      <div style={{ marginBottom: '32px' }}>
+      <div style={{ marginBottom: '32px', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Paso {step + 1} de {STEPS.length}</span>
           <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{Math.round(progressPct)}%</span>
@@ -193,180 +185,200 @@ export default function Onboarding() {
 
       {/* Step 1 — Welcome */}
       {step === 0 && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <img src="/icon-192.png" alt="Assetic" style={{ width: '80px', height: '80px', borderRadius: '20px', marginBottom: '24px' }} />
-            <h1 style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px', marginBottom: '16px' }}>
-              Bienvenido a Assetic.
-            </h1>
-            <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '12px' }}>
-              Tu plata no debería estar quieta perdiendo valor.
-            </p>
-            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-              Assetic monitorea tus activos y te avisa cuándo vale la pena moverse — sin que tengas que estar mirando el mercado todo el día.
-            </p>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <img src="/icon-192.png" alt="Assetic" style={{ width: '80px', height: '80px', borderRadius: '20px', marginBottom: '24px' }} />
+              <h1 style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px', marginBottom: '16px' }}>
+                Bienvenido a Assetic.
+              </h1>
+              <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '12px' }}>
+                Tu plata no debería estar quieta perdiendo valor.
+              </p>
+              <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                Assetic monitorea tus activos y te avisa cuándo vale la pena moverse — sin que tengas que estar mirando el mercado todo el día.
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { icon: '📈', text: 'Invertir de a poco en activos que caen, no vender por pánico' },
+                { icon: '🧠', text: 'Entender por qué se mueve el mercado, no solo seguir números' },
+                { icon: '🔕', text: 'Recibir solo lo que importa, sin ruido ni alertas innecesarias' },
+              ].map(item => (
+                <div key={item.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{item.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
-            {[
-              { icon: '📈', text: 'Invertir de a poco en activos que caen, no vender por pánico' },
-              { icon: '🧠', text: 'Entender por qué se mueve el mercado, no solo seguir números' },
-              { icon: '🔕', text: 'Recibir solo lo que importa, sin ruido ni alertas innecesarias' },
-            ].map(item => (
-              <div key={item.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <span style={{ fontSize: '20px' }}>{item.icon}</span>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{item.text}</p>
-              </div>
-            ))}
+          <div style={{ paddingTop: '24px', flexShrink: 0 }}>
+            <Button onClick={nextStep} style={{ width: '100%', padding: '14px', fontSize: '15px' }}>
+              Continuar →
+            </Button>
           </div>
         </div>
       )}
 
       {/* Step 2 — Watchlist */}
       {step === 1 && (
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px' }}>Agregá tu primer activo</h2>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '24px' }}>
-            La Watchlist es donde la IA trabaja por vos. Tres veces por día, durante el horario de mercado, analiza cada activo que agregues y te avisa solo si detecta algo relevante.
-          </p>
-
-          <Card style={{ marginBottom: '16px', background: 'var(--bg-secondary)' }}>
-            <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>¿Cuándo te notifica?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                '📉 Caída significativa con una causa clara',
-                '🌍 Evento macro que impacta directamente al activo',
-                '💡 Oportunidad de compra gradual bien fundamentada',
-              ].map(item => (
-                <p key={item} style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{item}</p>
-              ))}
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '12px' }}>Si no hay nada importante, no te molesta.</p>
-          </Card>
-
-          {!watchlistAdded ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Input
-                placeholder="Símbolo (ej: SPY, QQQ, BTC)"
-                value={watchlistForm.asset_symbol}
-                onChange={e => setWatchlistForm({ ...watchlistForm, asset_symbol: e.target.value.toUpperCase() })}
-              />
-              <Select value={watchlistForm.asset_type} onChange={e => setWatchlistForm({ ...watchlistForm, asset_type: e.target.value })}>
-                <option value="etf">ETF</option>
-                <option value="stock">Stock</option>
-                <option value="crypto">Crypto</option>
-              </Select>
-              <Button onClick={addToWatchlist} disabled={addingWatchlist || !watchlistForm.asset_symbol} style={{ width: '100%', padding: '14px' }}>
-                {addingWatchlist ? 'Agregando...' : 'Agregar a Watchlist'}
-              </Button>
-            </div>
-          ) : (
-            <Card style={{ background: 'var(--positive-dim)', border: '1px solid var(--positive)' }}>
-              <p style={{ fontSize: '15px', fontWeight: '600', color: 'var(--positive)', textAlign: 'center' }}>
-                ✅ {watchlistForm.asset_symbol.toUpperCase()} agregado correctamente
-              </p>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '6px' }}>
-                La IA va a monitorear este activo automáticamente.
-              </p>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px' }}>Agregá tu primer activo</h2>
+            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '24px' }}>
+              La Watchlist es donde la IA trabaja por vos. Tres veces por día, durante el horario de mercado, analiza cada activo que agregues y te avisa solo si detecta algo relevante.
+            </p>
+            <Card style={{ marginBottom: '16px', background: 'var(--bg-secondary)' }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>¿Cuándo te notifica?</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  '📉 Caída significativa con una causa clara',
+                  '🌍 Evento macro que impacta directamente al activo',
+                  '💡 Oportunidad de compra gradual bien fundamentada',
+                ].map(item => (
+                  <p key={item} style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{item}</p>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '12px' }}>Si no hay nada importante, no te molesta.</p>
             </Card>
-          )}
-          {!watchlistAdded && (
-            <button
-              onClick={() => setStep(2)}
-              style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '12px', cursor: 'pointer', padding: '8px' }}
-            >
-              Saltar por ahora
-            </button>
-          )}
+            {!watchlistAdded ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <Input
+                  placeholder="Símbolo (ej: SPY, QQQ, BTC)"
+                  value={watchlistForm.asset_symbol}
+                  onChange={e => setWatchlistForm({ ...watchlistForm, asset_symbol: e.target.value.toUpperCase() })}
+                />
+                <Select value={watchlistForm.asset_type} onChange={e => setWatchlistForm({ ...watchlistForm, asset_type: e.target.value })}>
+                  <option value="etf">ETF</option>
+                  <option value="stock">Stock</option>
+                  <option value="crypto">Crypto</option>
+                </Select>
+                <Button onClick={addToWatchlist} disabled={addingWatchlist || !watchlistForm.asset_symbol} style={{ width: '100%', padding: '14px' }}>
+                  {addingWatchlist ? 'Agregando...' : 'Agregar a Watchlist'}
+                </Button>
+              </div>
+            ) : (
+              <Card style={{ background: 'var(--positive-dim)', border: '1px solid var(--positive)' }}>
+                <p style={{ fontSize: '15px', fontWeight: '600', color: 'var(--positive)', textAlign: 'center' }}>
+                  ✅ {watchlistForm.asset_symbol.toUpperCase()} agregado correctamente
+                </p>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '6px' }}>
+                  La IA va a monitorear este activo automáticamente.
+                </p>
+              </Card>
+            )}
+          </div>
+          <div style={{ paddingTop: '24px', flexShrink: 0 }}>
+            <Button onClick={nextStep} style={{ width: '100%', padding: '14px', fontSize: '15px' }}>
+              Continuar →
+            </Button>
+            {!watchlistAdded && (
+              <button
+                onClick={() => setStep(2)}
+                style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '12px', cursor: 'pointer', padding: '8px' }}
+              >
+                Saltar por ahora
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Step 3 — Notifications */}
       {step === 2 && (
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px' }}>Activá las notificaciones</h2>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '24px' }}>
-            Sin notificaciones, Assetic no puede avisarte cuando algo importante ocurre. Las usamos solo cuando hay algo que realmente vale la pena saber.
-          </p>
-
-          {notifStatus === 'idle' && (
-            <Button onClick={activateNotifications} style={{ width: '100%', padding: '14px', fontSize: '15px', marginBottom: '16px' }}>
-              🔔 Activar notificaciones
-            </Button>
-          )}
-
-          {notifStatus === 'loading' && (
-            <Button disabled style={{ width: '100%', padding: '14px', fontSize: '15px', marginBottom: '16px' }}>
-              Activando...
-            </Button>
-          )}
-
-          {notifStatus === 'active' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <Card style={{ background: 'var(--positive-dim)', border: '1px solid var(--positive)' }}>
-                <p style={{ fontSize: '15px', fontWeight: '600', color: 'var(--positive)', textAlign: 'center' }}>
-                  ✅ Notificaciones activadas
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px' }}>Activá las notificaciones</h2>
+            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '24px' }}>
+              Sin notificaciones, Assetic no puede avisarte cuando algo importante ocurre. Las usamos solo cuando hay algo que realmente vale la pena saber.
+            </p>
+            {notifStatus === 'idle' && (
+              <Button onClick={activateNotifications} style={{ width: '100%', padding: '14px', fontSize: '15px', marginBottom: '16px' }}>
+                🔔 Activar notificaciones
+              </Button>
+            )}
+            {notifStatus === 'loading' && (
+              <Button disabled style={{ width: '100%', padding: '14px', fontSize: '15px', marginBottom: '16px' }}>
+                Activando...
+              </Button>
+            )}
+            {notifStatus === 'active' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <Card style={{ background: 'var(--positive-dim)', border: '1px solid var(--positive)' }}>
+                  <p style={{ fontSize: '15px', fontWeight: '600', color: 'var(--positive)', textAlign: 'center' }}>
+                    ✅ Notificaciones activadas
+                  </p>
+                </Card>
+                {watchlistAdded && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <Button onClick={sendTestNotification} disabled={testSent} variant="ghost" style={{ width: '100%', padding: '14px', fontSize: '14px' }}>
+                      {testSent ? progressLabel : '🧪 Probar — analizar ' + watchlistForm.asset_symbol.toUpperCase()}
+                    </Button>
+                    {testSent && (
+                      <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          {['🔍', '🧠', '✅'].map((icon, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: i < 2 ? 1 : 'none' }}>
+                              <span style={{ fontSize: '14px', opacity: progressStep >= i ? 1 : 0.3, transition: 'opacity 0.4s ease' }}>{icon}</span>
+                              <span style={{ fontSize: '11px', color: progressStep >= i ? 'var(--text-primary)' : 'var(--text-tertiary)', transition: 'color 0.4s ease' }}>
+                                {['Noticias', 'Análisis', 'Listo'][i]}
+                              </span>
+                              {i < 2 && (
+                                <div style={{ flex: 1, height: '2px', background: progressStep > i ? 'var(--accent)' : 'var(--border)', margin: '0 6px', borderRadius: '999px', transition: 'background 0.4s ease' }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>
+                          Esto puede tardar unos segundos. Podés continuar con el tutorial mientras esperás.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {notifStatus === 'denied' && (
+              <Card style={{ background: 'var(--negative-dim)', border: '1px solid var(--negative)' }}>
+                <p style={{ fontSize: '14px', color: 'var(--negative)', textAlign: 'center' }}>
+                  ❌ Permiso denegado. Habilitá las notificaciones desde los ajustes de tu dispositivo.
                 </p>
               </Card>
-              {watchlistAdded && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <Button
-                    onClick={sendTestNotification}
-                    disabled={testSent}
-                    variant="ghost"
-                    style={{ width: '100%', padding: '14px', fontSize: '14px' }}
-                  >
-                    {testSent ? progressLabel : '🧪 Probar — analizar ' + watchlistForm.asset_symbol.toUpperCase()}
-                  </Button>
-                  {testSent && (
-                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        {['🔍', '🧠', '✅'].map((icon, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: i < 2 ? 1 : 'none' }}>
-                            <span style={{ fontSize: '14px', opacity: progressStep >= i ? 1 : 0.3, transition: 'opacity 0.4s ease' }}>{icon}</span>
-                            <span style={{ fontSize: '11px', color: progressStep >= i ? 'var(--text-primary)' : 'var(--text-tertiary)', transition: 'color 0.4s ease' }}>
-                              {['Noticias', 'Análisis', 'Listo'][i]}
-                            </span>
-                            {i < 2 && (
-                              <div style={{ flex: 1, height: '2px', background: progressStep > i ? 'var(--accent)' : 'var(--border)', margin: '0 6px', borderRadius: '999px', transition: 'background 0.4s ease' }} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>
-                        Esto puede tardar unos segundos. Podés continuar con el tutorial mientras esperás — te va a llegar una notificación cuando esté listo.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {notifStatus === 'denied' && (
-            <Card style={{ background: 'var(--negative-dim)', border: '1px solid var(--negative)' }}>
-              <p style={{ fontSize: '14px', color: 'var(--negative)', textAlign: 'center' }}>
-                ❌ Permiso denegado. Habilitá las notificaciones desde los ajustes de tu dispositivo.
-              </p>
-            </Card>
-          )}
-
-          {notifStatus === 'error' && (
-            <Card style={{ background: 'var(--warning-dim)', border: '1px solid var(--warning)' }}>
-              <p style={{ fontSize: '14px', color: 'var(--warning)', textAlign: 'center' }}>
-                ⚠️ Error al activar. Intentá de nuevo.
-              </p>
-              <Button onClick={activateNotifications} variant="warning" style={{ width: '100%', marginTop: '12px' }}>
-                Reintentar
-              </Button>
-            </Card>
-          )}
+            )}
+            {notifStatus === 'error' && (
+              <Card style={{ background: 'var(--warning-dim)', border: '1px solid var(--warning)' }}>
+                <p style={{ fontSize: '14px', color: 'var(--warning)', textAlign: 'center' }}>
+                  ⚠️ Error al activar. Intentá de nuevo.
+                </p>
+                <Button onClick={activateNotifications} variant="warning" style={{ width: '100%', marginTop: '12px' }}>
+                  Reintentar
+                </Button>
+              </Card>
+            )}
+          </div>
+          <div style={{ paddingTop: '24px', flexShrink: 0 }}>
+            <Button
+              onClick={nextStep}
+              disabled={!canGoNext()}
+              style={{ width: '100%', padding: '14px', fontSize: '15px', opacity: canGoNext() ? 1 : 0.4 }}
+            >
+              Continuar →
+            </Button>
+            {notifStatus !== 'active' && (
+              <button
+                onClick={nextStep}
+                style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '12px', cursor: 'pointer', padding: '8px' }}
+              >
+                Saltar por ahora
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {/* Step 4 — Tour */}
       {step === 3 && (
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Todo listo 🎉</h2>
           <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '24px' }}>
             Antes de empezar, un tour rápido de lo que tenés disponible.
@@ -388,51 +400,33 @@ export default function Onboarding() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          <div style={{ paddingTop: '16px', flexShrink: 0 }}>
             {tourIndex < TOUR_TABS.length - 1 ? (
-              <>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <Button onClick={() => setTourIndex(tourIndex + 1)} style={{ flex: 1, padding: '14px' }}>
                   Siguiente →
                 </Button>
                 <Button onClick={completeOnboarding} variant="ghost" style={{ padding: '14px' }}>
                   Saltar
                 </Button>
-              </>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <Button onClick={completeOnboarding} style={{ flex: 1, padding: '14px', fontSize: '15px' }}>
-                  Empezar a usar Assetic →
-                </Button>
                 <button
                   onClick={() => setShowPortfolioTutorial(true)}
                   style={{ width: '100%', background: 'none', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '600', color: 'var(--accent)', cursor: 'pointer' }}
                 >
                   💼 Ver tutorial de Portfolio →
                 </button>
+                <Button onClick={completeOnboarding} style={{ width: '100%', padding: '14px', fontSize: '15px' }}>
+                  Empezar a usar Assetic →
+                </Button>
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Bottom CTA */}
-      {step < 3 && (
-        <div style={{ paddingTop: '24px' }}>
-          <Button
-            onClick={nextStep}
-            disabled={!canGoNext()}
-            style={{ width: '100%', padding: '14px', fontSize: '15px', opacity: canGoNext() ? 1 : 0.4 }}
-          >
-            {step === STEPS.length - 1 ? 'Empezar →' : 'Continuar →'}
-          </Button>
-          {step === 2 && notifStatus !== 'active' && (
-            <button
-              onClick={nextStep}
-              style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '12px', cursor: 'pointer', padding: '8px' }}
-            >
-              Saltar por ahora
-            </button>
-          )}
         </div>
       )}
 
