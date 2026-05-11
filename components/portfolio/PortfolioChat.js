@@ -1,5 +1,56 @@
 import { useState, useRef, useEffect } from 'react'
-import Button from '../ui/Button'
+
+// Renderizador simple de markdown
+function renderMarkdown(text) {
+  const lines = text.split('\n')
+  const elements = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Título ## o ###
+    if (line.startsWith('### ')) {
+      elements.push(<p key={i} style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px', marginTop: '8px', fontSize: '13px' }}>{line.slice(4)}</p>)
+    } else if (line.startsWith('## ')) {
+      elements.push(<p key={i} style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px', marginTop: '8px', fontSize: '14px' }}>{line.slice(3)}</p>)
+    } else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+      elements.push(<p key={i} style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '2px', marginTop: '6px' }}>{line.slice(2, -2)}</p>)
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      elements.push(
+        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '2px' }}>
+          <span style={{ color: 'var(--accent)', flexShrink: 0 }}>•</span>
+          <span>{formatInline(line.slice(2))}</span>
+        </div>
+      )
+    } else if (line.match(/^\d+\. /)) {
+      const num = line.match(/^(\d+)\. /)[1]
+      elements.push(
+        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '2px' }}>
+          <span style={{ color: 'var(--accent)', flexShrink: 0, fontWeight: '600' }}>{num}.</span>
+          <span>{formatInline(line.replace(/^\d+\. /, ''))}</span>
+        </div>
+      )
+    } else if (line === '') {
+      elements.push(<div key={i} style={{ height: '6px' }} />)
+    } else {
+      elements.push(<p key={i} style={{ marginBottom: '2px' }}>{formatInline(line)}</p>)
+    }
+    i++
+  }
+  return elements
+}
+
+function formatInline(text) {
+  // Renderizar **bold** inline
+  const parts = text.split(/(\*\*[^*]+\*\*)/)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: '700' }}>{part.slice(2, -2)}</strong>
+    }
+    return part
+  })
+}
 
 export default function PortfolioChat({ userId, initialAnalysis }) {
   const [messages, setMessages] = useState(
@@ -10,10 +61,12 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const bottomRef = useRef(null)
+  const messagesRef = useRef(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+    }
   }, [messages])
 
   async function sendMessage() {
@@ -49,10 +102,13 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '16px' }}>
+      <div
+        ref={messagesRef}
+        style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '8px' }}
+      >
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <p style={{ fontSize: '32px', marginBottom: '12px' }}>💬</p>
@@ -71,7 +127,7 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
               ].map(suggestion => (
                 <button
                   key={suggestion}
-                  onClick={() => { setInput(suggestion); }}
+                  onClick={() => setInput(suggestion)}
                   style={{
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border)',
@@ -99,16 +155,15 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
             }}
           >
             <div style={{
-              maxWidth: '85%',
+              maxWidth: '88%',
               background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-secondary)',
               borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
               padding: '12px 14px',
               fontSize: '13px',
-              color: msg.role === 'user' ? '#fff' : 'var(--text-secondary)',
+              color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
               lineHeight: '1.6',
-              whiteSpace: 'pre-wrap',
             }}>
-              {msg.content}
+              {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
             </div>
           </div>
         ))}
@@ -122,7 +177,7 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
               fontSize: '13px',
               color: 'var(--text-tertiary)',
             }}>
-              <span style={{ animation: 'pulse 1.5s ease infinite' }}>Pensando...</span>
+              Pensando...
             </div>
           </div>
         )}
@@ -132,8 +187,6 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
             <p style={{ fontSize: '12px', color: 'var(--negative)' }}>❌ {error}</p>
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -143,6 +196,7 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
         display: 'flex',
         gap: '8px',
         alignItems: 'flex-end',
+        flexShrink: 0,
       }}>
         <textarea
           value={input}
