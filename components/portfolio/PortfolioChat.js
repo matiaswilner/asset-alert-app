@@ -102,7 +102,7 @@ export default function PortfolioChat({ userId, initialAnalysis }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 280px)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
 
       {/* Messages */}
       <div
