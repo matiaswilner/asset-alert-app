@@ -541,7 +541,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
+      <div key={activeTab} style={{ flex: 1, padding: activeTab === 'chat' ? '20px 20px 0 20px' : '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
 
         {activeTab === 'alerts' && (
           <div>
@@ -666,8 +666,8 @@ export default function App() {
         )}
 
 {activeTab === 'chat' && isV4Enabled(user?.id) && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)' }}>
+            <div style={{ marginBottom: '12px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Asesor</h2>
               <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                 Tu asesor financiero personal con contexto de tu portfolio
