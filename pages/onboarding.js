@@ -30,6 +30,16 @@ const TOUR_TABS = [
     title: 'Historial',
     description: 'Todas las notificaciones que recibiste, ordenadas por fecha. Podés expandir cada una para ver el detalle completo.',
   },
+  {
+    icon: '💼',
+    title: 'Portfolio',
+    description: 'Sincronizá tu portfolio de Interactive Brokers subiendo un Activity Statement en CSV. Vas a ver tus posiciones, pesos, P&L y gráficas de distribución, performance y riesgo. Los análisis de activos que tenés en el portfolio incluyen contexto de tu posición.',
+  },
+  {
+    icon: '💬',
+    title: 'Asesor',
+    description: 'Tu asesor financiero personal con contexto de tu portfolio. Hacé cualquier pregunta sobre inversiones — qué hacer con el cash disponible, cómo rebalancear, qué pasa si el mercado cae — y recibís respuestas específicas a tu situación.',
+  },
 ]
 
 export default function Onboarding() {
