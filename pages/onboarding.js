@@ -6,6 +6,7 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Card from '../components/ui/Card'
+import PortfolioTutorial from '../components/portfolio/PortfolioTutorial'
 
 const STEPS = ['welcome', 'watchlist', 'notifications', 'tour']
 
@@ -54,6 +55,7 @@ export default function Onboarding() {
   const [progressStep, setProgressStep] = useState(0)
   const [progressLabel, setProgressLabel] = useState('📨 Análisis en camino...')
   const [tourIndex, setTourIndex] = useState(0)
+  const [showPortfolioTutorial, setShowPortfolioTutorial] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -397,9 +399,17 @@ export default function Onboarding() {
                 </Button>
               </>
             ) : (
-              <Button onClick={completeOnboarding} style={{ flex: 1, padding: '14px', fontSize: '15px' }}>
-                Empezar a usar Assetic →
-              </Button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <Button onClick={completeOnboarding} style={{ flex: 1, padding: '14px', fontSize: '15px' }}>
+                  Empezar a usar Assetic →
+                </Button>
+                <button
+                  onClick={() => setShowPortfolioTutorial(true)}
+                  style={{ width: '100%', background: 'none', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '600', color: 'var(--accent)', cursor: 'pointer' }}
+                >
+                  💼 Ver tutorial de Portfolio →
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -425,6 +435,13 @@ export default function Onboarding() {
           )}
         </div>
       )}
+
+      {showPortfolioTutorial && (
+        <PortfolioTutorial onClose={() => { setShowPortfolioTutorial(false); completeOnboarding() }} />
+      )}
+    </div>
+  )
+}
     </div>
   )
 }
