@@ -666,8 +666,21 @@ export default function App() {
         )}
 
 {activeTab === 'chat' && isV4Enabled(user?.id) && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)' }}>
-            <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            position: 'fixed',
+            top: 0, left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: '480px',
+            height: '100vh',
+            background: 'var(--bg-primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 10,
+            padding: '20px 20px 0 20px',
+            boxSizing: 'border-box',
+          }}>
+            <div style={{ marginBottom: '12px', paddingTop: '0' }}>
               <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Asesor</h2>
               <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                 Tu asesor financiero personal con contexto de tu portfolio
@@ -688,7 +701,6 @@ export default function App() {
             )}
           </div>
         )}
-
         {activeTab === 'notifications' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
