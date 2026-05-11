@@ -61,12 +61,11 @@ export default function App() {
   const [syncResult, setSyncResult] = useState(null)
   const [chatAnalysis, setChatAnalysis] = useState(null)
 
-  // Watchlist flow
   const [showWatchlistSearch, setShowWatchlistSearch] = useState(false)
-
-  // Alert flow — step 1: search, step 2: condition form
-  const [alertStep, setAlertStep] = useState(null) // null | 'search' | 'form'
+  const [alertStep, setAlertStep] = useState(null)
   const [alertForm, setAlertForm] = useState(EMPTY_ALERT_FORM)
+
+  const isChat = activeTab === 'chat'
 
   function showError(message) {
     setErrorToast(message)
@@ -83,14 +82,12 @@ export default function App() {
       const notifId = params.get('notifId')
       setActiveTab(tab)
       if (notifId) setExpandedNotificationId(parseInt(notifId))
-
       const { data } = await supabase
         .from('push_subscriptions')
         .select('id')
         .eq('user_id', currentUser.id)
         .limit(1)
       if (data && data.length > 0) setNotifStatus('active')
-
       await fetchAll(currentUser)
     }
     init()
@@ -193,7 +190,6 @@ export default function App() {
     setPortfolioLoading(false)
   }
 
-  // Watchlist handlers
   async function handleWatchlistSelect(asset) {
     if (!user) return
     try {
@@ -235,7 +231,6 @@ export default function App() {
     }
   }
 
-  // Alert handlers
   function handleAlertAssetSelect(asset) {
     setAlertForm({
       asset_symbol: asset.asset_symbol,
@@ -497,12 +492,15 @@ export default function App() {
     </div>
   )
 
+  // Altura del header + progress bar aproximada
+  const HEADER_HEIGHT = 72
+
   return (
-    <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px', overflow: 'hidden' }}>
+    <div style={{ maxWidth: '480px', width: '100%', margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{fadeIn}</style>
 
       {/* Header */}
-      <div style={{ padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src="/icon-192.png" alt="Assetic" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           <h1 style={{ fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Assetic</h1>
@@ -541,8 +539,20 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div key={activeTab} style={{ flex: 1, padding: activeTab === 'chat' ? '20px 20px 0 20px' : '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box', display: activeTab === 'chat' ? 'flex' : 'block', flexDirection: 'column' }}>
-
+      <div
+        key={activeTab}
+        style={{
+          flex: 1,
+          padding: isChat ? '16px 20px 0 20px' : '20px',
+          overflowY: isChat ? 'hidden' : 'auto',
+          animation: 'fadeIn 0.2s ease',
+          width: '100%',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
         {activeTab === 'alerts' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -551,55 +561,30 @@ export default function App() {
                 <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Alertas manuales por condición de precio</p>
               </div>
               {alertStep === null && (
-                <Button onClick={() => setAlertStep('search')} variant="purple">
-                  + Nueva
-                </Button>
+                <Button onClick={() => setAlertStep('search')} variant="purple">+ Nueva</Button>
               )}
             </div>
 
             {alertStep === 'search' && (
               <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
-                <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                  Paso 1 — Elegí el activo
-                </p>
-                <AssetSearch
-                  onSelect={handleAlertAssetSelect}
-                  onCancel={() => setAlertStep(null)}
-                />
+                <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px' }}>Paso 1 — Elegí el activo</p>
+                <AssetSearch onSelect={handleAlertAssetSelect} onCancel={() => setAlertStep(null)} />
               </Card>
             )}
 
             {alertStep === 'form' && (
               <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <button
-                    onClick={() => setAlertStep('search')}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', padding: 0 }}
-                  >
-                    ←
-                  </button>
+                  <button onClick={() => setAlertStep('search')} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', padding: 0 }}>←</button>
                   <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                     Paso 2 — Configurá la condición para <span style={{ color: 'var(--accent)' }}>{alertForm.asset_symbol}</span>
                   </p>
                 </div>
-                <AlertForm
-                  form={alertForm}
-                  setForm={setAlertForm}
-                  onSubmit={createAlert}
-                  onCancel={() => { setAlertStep(null); setAlertForm(EMPTY_ALERT_FORM) }}
-                  lockAsset
-                />
+                <AlertForm form={alertForm} setForm={setAlertForm} onSubmit={createAlert} onCancel={() => { setAlertStep(null); setAlertForm(EMPTY_ALERT_FORM) }} lockAsset />
               </Card>
             )}
 
-            <AlertList
-              alerts={alerts}
-              onToggle={toggleAlert}
-              onDelete={deleteAlert}
-              onEdit={editAlert}
-              onAnalyze={analyzeManually}
-              analyzingSymbol={analyzingSymbol}
-            />
+            <AlertList alerts={alerts} onToggle={toggleAlert} onDelete={deleteAlert} onEdit={editAlert} onAnalyze={analyzeManually} analyzingSymbol={analyzingSymbol} />
           </div>
         )}
 
@@ -614,18 +599,13 @@ export default function App() {
                 <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Monitoreo inteligente con Smart Alerts</p>
               </div>
               {!showWatchlistSearch && (
-                <Button onClick={() => setShowWatchlistSearch(true)} variant="purple">
-                  + Agregar
-                </Button>
+                <Button onClick={() => setShowWatchlistSearch(true)} variant="purple">+ Agregar</Button>
               )}
             </div>
 
             {showWatchlistSearch && (
               <Card style={{ marginBottom: '16px', border: '1px solid var(--border-accent)' }}>
-                <AssetSearch
-                  onSelect={handleWatchlistSelect}
-                  onCancel={() => setShowWatchlistSearch(false)}
-                />
+                <AssetSearch onSelect={handleWatchlistSelect} onCancel={() => setShowWatchlistSearch(false)} />
               </Card>
             )}
 
@@ -651,7 +631,7 @@ export default function App() {
           </div>
         )}
 
-{activeTab === 'portfolio' && isV4Enabled(user?.id) && (
+        {activeTab === 'portfolio' && isV4Enabled(user?.id) && (
           <PortfolioTab
             portfolio={portfolio}
             portfolioLoading={portfolioLoading}
@@ -665,13 +645,9 @@ export default function App() {
           />
         )}
 
-{activeTab === 'chat' && isV4Enabled(user?.id) && (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-          }}>
-            <div style={{ marginBottom: '12px' }}>
+        {activeTab === 'chat' && isV4Enabled(user?.id) && (
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ marginBottom: '12px', flexShrink: 0 }}>
               <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Asesor</h2>
               <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                 Tu asesor financiero personal con contexto de tu portfolio
@@ -680,12 +656,8 @@ export default function App() {
             {!portfolio?.positions?.length ? (
               <div style={{ textAlign: 'center', padding: '40px 16px' }}>
                 <p style={{ fontSize: '32px', marginBottom: '12px' }}>💼</p>
-                <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  Sincronizá tu portfolio primero
-                </p>
-                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>
-                  El asesor necesita los datos de tu portfolio para darte respuestas personalizadas.
-                </p>
+                <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>Sincronizá tu portfolio primero</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: '1.5' }}>El asesor necesita los datos de tu portfolio para darte respuestas personalizadas.</p>
               </div>
             ) : (
               <PortfolioChat userId={user?.id} initialAnalysis={chatAnalysis} />
@@ -705,7 +677,7 @@ export default function App() {
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', background: 'rgba(13, 13, 20, 0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)', display: 'flex', padding: '8px 0 calc(8px + env(safe-area-inset-bottom))' }}>
+      <div style={{ flexShrink: 0, background: 'rgba(13, 13, 20, 0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)', display: 'flex', padding: '8px 0 calc(8px + env(safe-area-inset-bottom))' }}>
         {tabs.filter(tab => (tab.id !== 'portfolio' && tab.id !== 'chat') || isV4Enabled(user?.id)).map(tab => (
           <button
             key={tab.id}
