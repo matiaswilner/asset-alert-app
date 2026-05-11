@@ -541,7 +541,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div key={activeTab} style={{ flex: 1, padding: activeTab === 'chat' ? '20px 20px 0 20px' : '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
+      <div key={activeTab} style={{ flex: 1, padding: activeTab === 'chat' ? '20px 20px 0 20px' : '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box', display: activeTab === 'chat' ? 'flex' : 'block', flexDirection: 'column' }}>
 
         {activeTab === 'alerts' && (
           <div>
@@ -667,20 +667,11 @@ export default function App() {
 
 {activeTab === 'chat' && isV4Enabled(user?.id) && (
           <div style={{
-            position: 'fixed',
-            top: 0, left: '50%',
-            transform: 'translateX(-50%)',
-            width: '100%',
-            maxWidth: '480px',
-            height: '100vh',
-            background: 'var(--bg-primary)',
             display: 'flex',
             flexDirection: 'column',
-            zIndex: 10,
-            padding: '20px 20px 0 20px',
-            boxSizing: 'border-box',
+            height: '100%',
           }}>
-            <div style={{ marginBottom: '12px', paddingTop: '0' }}>
+            <div style={{ marginBottom: '12px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: '600' }}>Asesor</h2>
               <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                 Tu asesor financiero personal con contexto de tu portfolio
@@ -701,6 +692,7 @@ export default function App() {
             )}
           </div>
         )}
+
         {activeTab === 'notifications' && (
           <div>
             <div style={{ marginBottom: '16px' }}>
