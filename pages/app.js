@@ -541,7 +541,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
+      <div key={activeTab} style={{ flex: 1, padding: '20px', overflowY: activeTab === 'chat' ? 'hidden' : 'auto', animation: 'fadeIn 0.2s ease', width: '100%', boxSizing: 'border-box' }}>
 
         {activeTab === 'alerts' && (
           <div>
